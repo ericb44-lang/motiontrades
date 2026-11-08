@@ -403,15 +403,7 @@ export const market = {
   },
 };
 
-export const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
-  not_as_described: "Not as described",
-  missing_accessories: "Missing accessories",
-  damaged_in_transit: "Damaged in transit",
-  not_shipped: "Package not shipped",
-  counterfeit: "Suspected counterfeit",
-  communication: "Communication issue",
-  other: "Other",
-};
+export { REPORT_CATEGORY_LABELS } from "./trade-logic";
 
 /* ------------------------- selector helpers ------------------------- */
 
