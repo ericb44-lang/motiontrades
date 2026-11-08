@@ -3,7 +3,7 @@
 // Run: npm run sync:edge   (a unit test fails if the copies are out of date)
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 
-export const SHARED = ["types.ts", "trade-logic.ts", "trade-actions.ts", "rows.ts"];
+export const SHARED = ["types.ts", "trade-logic.ts", "trade-actions.ts", "rows.ts", "shipping.ts", "stripe-signature.ts"];
 export const SRC = "src/lib/marketplace";
 export const DEST = "supabase/functions/_shared";
 

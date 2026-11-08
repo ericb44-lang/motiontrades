@@ -70,8 +70,7 @@ export function MakeOfferDialog({
           <DialogHeader>
             <DialogTitle className="font-display">Log in to make an offer</DialogTitle>
             <DialogDescription>
-              Log in or make a free account first. It only takes a minute, and we never ask for your
-              address.
+              Log in or make a free account first. It only takes a minute.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -144,7 +143,8 @@ export function MakeOfferDialog({
             className="bg-surface"
           />
           <p className="text-xs text-muted-foreground">
-            Don't share your address or payment info. You'll never need to here.
+            Don't put your address or payment info in messages. Shipping and payment happen later,
+            privately, once the trade is agreed.
           </p>
         </div>
 

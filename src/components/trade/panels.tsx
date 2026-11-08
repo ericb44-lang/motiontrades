@@ -5,7 +5,7 @@ import {
   FileSignature,
   Lock,
   PackageCheck,
-  ScanLine,
+  Printer,
   Star,
   Truck,
 } from "lucide-react";
@@ -19,7 +19,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ConditionBadge, FigureImage } from "@/components/market/bits";
 import { ReportDialog } from "@/components/market/ReportDialog";
-import { REPORT_CATEGORY_LABELS, market, useIsAdmin } from "@/lib/marketplace/store";
+import { REPORT_CATEGORY_LABELS, market, useIsAdmin, useMyShipping } from "@/lib/marketplace/store";
+import { trackingUrl } from "@/lib/marketplace/shipping";
+import { LabelPurchase } from "./LabelPurchase";
 import {
   PACKING_CHECKLIST,
   SHIP_STAGE_LABELS,
@@ -247,11 +249,11 @@ export function ShipmentPanel({
 }) {
   const s = trade.shipments[senderSide];
   const isMine = senderSide === mySide;
+  const myShipping = useMyShipping(trade.id);
   const sender = people[senderSide];
   const recipient = people[otherSide(senderSide)];
   const current = stageIndex(s.stage);
   const otherDropped = hasReached(trade.shipments[otherSide(senderSide)], "dropped_off");
-  const [checks, setChecks] = useState<string[]>([]);
   const at = (stage: (typeof SHIP_STAGES)[number]) => s.history.find((h) => h.stage === stage)?.at;
 
   return (
@@ -262,9 +264,18 @@ export function ShipmentPanel({
       icon={Truck}
       aside={
         s.trackingCode ? (
-          <span className="flex items-center gap-2 font-mono text-xs">
-            {s.trackingCode} <Badge variant="muted">Trade code</Badge>
-          </span>
+          s.carrier ? (
+            <a
+              href={trackingUrl(s.carrier, s.trackingCode)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 font-mono text-xs underline-offset-4 hover:underline"
+            >
+              {s.trackingCode} <Badge variant="muted">{s.carrier} tracking</Badge>
+            </a>
+          ) : (
+            <span className="font-mono text-xs">{s.trackingCode}</span>
+          )
         ) : (
           <Badge variant="muted">No label yet</Badge>
         )
@@ -316,54 +327,38 @@ export function ShipmentPanel({
 
         {/* Sender actions */}
         {isMine && s.stage === "packing" && (
-          <div className="space-y-4">
-            <p className="text-sm font-semibold">Packing checklist</p>
-            <ul className="space-y-2">
-              {PACKING_CHECKLIST.map((c) => (
-                <li key={c}>
-                  <label className="flex cursor-pointer items-start gap-3 border bg-surface p-3 text-sm has-[[data-state=checked]]:border-success/50">
-                    <Checkbox
-                      checked={checks.includes(c)}
-                      onCheckedChange={(v) =>
-                        setChecks((p) => (v ? [...p, c] : p.filter((x) => x !== c)))
-                      }
-                      className="mt-0.5"
-                    />
-                    {c}
-                  </label>
-                </li>
-              ))}
-            </ul>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                variant="hero"
-                disabled={checks.length < PACKING_CHECKLIST.length}
-                onClick={() =>
-                  run(() => market.generateLabel(trade.id, senderSide, checks), "Packing confirmed")
-                }
-              >
-                <ScanLine /> Confirm packing
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                You'll print your own shipping label for now. Keep the trade code with your package.
-              </p>
-            </div>
-          </div>
+          <LabelPurchase trade={trade} otherName={recipient.displayName} />
         )}
 
         {isMine && s.stage === "label_created" && (
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant="hero"
-              onClick={() =>
-                run(() => market.markDroppedOff(trade.id, senderSide), "Marked as dropped off")
-              }
-            >
-              <PackageCheck /> Mark as dropped off
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Drop off within {trade.agreement?.shipWindowDays} days of signing.
-            </p>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3 border border-success/40 bg-success/5 p-4">
+              <CheckCircle2 className="size-5 text-success" />
+              <p className="flex-1 text-sm">
+                <span className="font-semibold">Your label is ready.</span> Print it, tape it to the
+                box, and drop it off.
+              </p>
+              {myShipping?.labelUrl && (
+                <Button asChild variant="hero" size="sm">
+                  <a href={myShipping.labelUrl} target="_blank" rel="noopener noreferrer">
+                    <Printer /> Print label
+                  </a>
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="hero"
+                onClick={() =>
+                  run(() => market.markDroppedOff(trade.id, senderSide), "Marked as dropped off")
+                }
+              >
+                <PackageCheck /> Mark as dropped off
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Drop off within {trade.agreement?.shipWindowDays} days of signing.
+              </p>
+            </div>
           </div>
         )}
 

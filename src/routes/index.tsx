@@ -152,7 +152,7 @@ function Index() {
               ))}
             </ul>
             <p className="mt-6 border-t pt-4 text-xs text-muted-foreground">
-              We'll never ask for your address, phone number or payment info.
+              Labels are bought right on the site, so neither of you ships until you're both ready.
             </p>
           </div>
         </div>

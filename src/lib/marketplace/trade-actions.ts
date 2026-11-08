@@ -2,6 +2,7 @@
 // trade-logic.ts. Pure functions (no database, no network), so the same code runs
 // in the Supabase edge function and in unit tests.
 import * as logic from "./trade-logic";
+import { parseAddress, parseParcel, type Parcel, type ShippingAddress } from "./shipping";
 import type { Inspection, Listing, Report, ReportCategory, Review, Side, Trade } from "./types";
 
 export class ActionError extends Error {
@@ -48,7 +49,10 @@ export type ActionRequest =
       description: string;
       desiredResolution: string;
     }
-  | { action: "advanceReport"; reportId: string };
+  | { action: "advanceReport"; reportId: string }
+  | { action: "saveAddress"; tradeId: string; address: ShippingAddress }
+  | { action: "getRates"; tradeId: string; parcel: Parcel }
+  | { action: "checkout"; tradeId: string; rateId: string; checklist: string[]; returnUrl: string };
 
 const TRADE_STEP_ACTIONS = new Set([
   "accept",
@@ -91,9 +95,33 @@ export function parseRequest(body: unknown): ActionRequest {
     case "confirmDelivery":
       if (!tradeId) throw new ActionError("Missing trade");
       return { action, tradeId };
-    case "label":
+    // Labels are only created by the payment webhook, never directly by a person.
+    case "saveAddress":
       if (!tradeId) throw new ActionError("Missing trade");
-      return { action, tradeId, checklist: strList(b["checklist"], 20, 200) };
+      try {
+        return { action, tradeId, address: parseAddress(b["address"]) };
+      } catch (e) {
+        throw new ActionError((e as Error).message);
+      }
+    case "getRates":
+      if (!tradeId) throw new ActionError("Missing trade");
+      try {
+        return { action, tradeId, parcel: parseParcel(b["parcel"]) };
+      } catch (e) {
+        throw new ActionError((e as Error).message);
+      }
+    case "checkout": {
+      if (!tradeId) throw new ActionError("Missing trade");
+      const rateId = str(b["rateId"], 64);
+      if (!rateId) throw new ActionError("Pick a shipping option");
+      return {
+        action,
+        tradeId,
+        rateId,
+        checklist: strList(b["checklist"], 20, 200),
+        returnUrl: str(b["returnUrl"], 500),
+      };
+    }
     case "inspect": {
       if (!tradeId) throw new ActionError("Missing trade");
       const result = b["result"];

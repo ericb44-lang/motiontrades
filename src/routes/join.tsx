@@ -159,7 +159,7 @@ function JoinPage() {
         <h1 className="text-3xl font-extrabold sm:text-4xl">Make your collector profile</h1>
         <p className="mt-2 max-w-xl text-muted-foreground">
           This is what other collectors see: your figures, your reviews and your rep. Your email
-          stays private, and we'll never ask for your address, phone number or payment info.
+          stays private. We only ask for your address when you buy a shipping label for a trade.
         </p>
 
         <form onSubmit={(e) => void submit(e)} noValidate className="mt-10 space-y-6">

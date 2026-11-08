@@ -105,7 +105,10 @@ export interface Inspection {
 export interface Shipment {
   stage: ShipStage;
   history: { stage: ShipStage; at: string }[];
-  trackingCode?: string | undefined; // MOTIONTRADES trade code for now; real carrier tracking comes with shipping labels
+  /** Carrier tracking number, set when the paid label is bought. */
+  trackingCode?: string | undefined;
+  /** Carrier for the tracking number, e.g. "USPS". */
+  carrier?: string | undefined;
   packingChecklist: string[];
   deliveryConfirmedAt?: string | undefined;
   inspection?: Inspection | undefined;

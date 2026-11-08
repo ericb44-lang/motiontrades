@@ -174,6 +174,22 @@ describe("request parsing", () => {
     expect(() => parseRequest({ action: "deleteEverything" })).toThrow(/Unknown action/);
   });
 
+  it("won't let anyone create a label without paying", () => {
+    expect(() => parseRequest({ action: "label", tradeId: "t-1", checklist: [] })).toThrow(
+      /Unknown action/,
+    );
+  });
+
+  it("checks addresses and packages before they reach Shippo", () => {
+    expect(() =>
+      parseRequest({ action: "saveAddress", tradeId: "t-1", address: { name: "x" } }),
+    ).toThrow(ActionError);
+    expect(() =>
+      parseRequest({ action: "getRates", tradeId: "t-1", parcel: { box: "small", weightLb: -1 } }),
+    ).toThrow(ActionError);
+    expect(() => parseRequest({ action: "checkout", tradeId: "t-1" })).toThrow(/shipping option/);
+  });
+
   it("rejects ratings outside 1 to 5", () => {
     expect(() => parseRequest({ action: "review", tradeId: "t-1", rating: 9 })).toThrow();
   });

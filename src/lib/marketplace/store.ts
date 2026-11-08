@@ -8,6 +8,7 @@
 import { useSyncExternalStore } from "react";
 import { appUrl, PHOTO_BUCKET, supabase } from "@/lib/supabase";
 import { compressPhoto } from "./images";
+import type { MyShipping, Parcel, RateOption, ShippingAddress } from "./shipping";
 import {
   listingToRow,
   PROFILE_COLUMNS,
@@ -43,6 +44,8 @@ interface Snapshot {
   email: string | null;
   /** Set when someone arrives from a "reset your password" email. */
   recovering: boolean;
+  /** The signed-in user's own shipping records, by trade id. Never anyone else's. */
+  shipping: Record<string, MyShipping>;
 }
 
 const SERVER_SNAPSHOT: Snapshot = {
@@ -51,6 +54,7 @@ const SERVER_SNAPSHOT: Snapshot = {
   isAdmin: false,
   email: null,
   recovering: false,
+  shipping: {},
 };
 let snapshot: Snapshot = SERVER_SNAPSHOT;
 const listeners = new Set<() => void>();
@@ -69,7 +73,7 @@ async function refresh() {
   const seq = ++loadSeq;
   const db = supabase();
   const me = currentUserId;
-  const [profiles, listings, trades, reviews, reports] = await Promise.all([
+  const [profiles, listings, trades, reviews, reports, shipping] = await Promise.all([
     db.from("profiles").select(`${PROFILE_COLUMNS}, is_admin`),
     db.from("listings").select("*").order("created_at", { ascending: false }),
     me
@@ -79,9 +83,19 @@ async function refresh() {
     me
       ? db.from("reports").select("*").order("created_at", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
+    me
+      ? db
+          .from("trade_shipping")
+          .select(
+            "trade_id, address, parcel, rates, selected_rate_id, payment_status, amount_total_cents, label_url, tracking_number, carrier, failure_message",
+          )
+          .eq("user_id", me)
+      : Promise.resolve({ data: [], error: null }),
   ]);
   if (seq !== loadSeq) return; // a newer load already started
-  const firstError = [profiles, listings, trades, reviews, reports].find((r) => r.error)?.error;
+  const firstError = [profiles, listings, trades, reviews, reports, shipping].find(
+    (r) => r.error,
+  )?.error;
   if (firstError) console.error("Couldn't load the marketplace", firstError);
 
   const profileRows = (profiles.data ?? []) as (ProfileRow & { is_admin: boolean })[];
@@ -96,7 +110,39 @@ async function refresh() {
       reviews: ((reviews.data ?? []) as ReviewRow[]).map(rowToReview),
       reports: ((reports.data ?? []) as ReportRow[]).map(rowToReport),
     },
+    shipping: Object.fromEntries(
+      ((shipping.data ?? []) as ShippingRow[]).map((r) => [
+        r.trade_id,
+        {
+          tradeId: r.trade_id,
+          address: r.address,
+          parcel: r.parcel,
+          rates: r.rates ?? [],
+          selectedRateId: r.selected_rate_id,
+          paymentStatus: r.payment_status,
+          amountTotalCents: r.amount_total_cents,
+          labelUrl: r.label_url,
+          trackingNumber: r.tracking_number,
+          carrier: r.carrier,
+          failureMessage: r.failure_message,
+        } satisfies MyShipping,
+      ]),
+    ),
   });
+}
+
+interface ShippingRow {
+  trade_id: string;
+  address: ShippingAddress | null;
+  parcel: Parcel | null;
+  rates: RateOption[] | null;
+  selected_rate_id: string | null;
+  payment_status: MyShipping["paymentStatus"];
+  amount_total_cents: number | null;
+  label_url: string | null;
+  tracking_number: string | null;
+  carrier: string | null;
+  failure_message: string | null;
 }
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -135,6 +181,11 @@ export function hydrateMarket() {
     .on("postgres_changes", { event: "*", schema: "public", table: "listings" }, scheduleRefresh)
     .on("postgres_changes", { event: "*", schema: "public", table: "trades" }, scheduleRefresh)
     .on("postgres_changes", { event: "*", schema: "public", table: "reports" }, scheduleRefresh)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "trade_shipping" },
+      scheduleRefresh,
+    )
     .subscribe();
 
   window.addEventListener("focus", scheduleRefresh);
@@ -164,6 +215,8 @@ export function useMarketHydrated(): boolean {
 export const useIsAdmin = () => useSnapshot().isAdmin;
 export const useMyEmail = () => useSnapshot().email;
 export const usePasswordRecovery = () => useSnapshot().recovering;
+export const useMyShipping = (tradeId: string): MyShipping | undefined =>
+  useSnapshot().shipping[tradeId];
 
 /* ------------------------------ helpers ------------------------------ */
 
@@ -405,14 +458,34 @@ export const market = {
 
   // `side` arguments are kept for the pages' convenience; the server always uses YOUR side.
   signAgreement: (id: string, _side?: Side) => act({ action: "sign", tradeId: id }),
-  generateLabel: (id: string, _side: Side, checklist: string[]) =>
-    act({ action: "label", tradeId: id, checklist }),
   markDroppedOff: (id: string, _side?: Side) => act({ action: "dropOff", tradeId: id }),
   updateTracking: (id: string, _side?: Side) => act({ action: "carrierScan", tradeId: id }),
   confirmDelivery: (id: string, _senderSide?: Side) =>
     act({ action: "confirmDelivery", tradeId: id }),
   submitInspection: (id: string, _senderSide: Side, inspection: Omit<Inspection, "at">) =>
     act({ action: "inspect", tradeId: id, ...inspection }),
+
+  /* ----- shipping labels (addresses stay private to their owner) ----- */
+
+  saveShippingAddress: (tradeId: string, address: ShippingAddress) =>
+    act({ action: "saveAddress", tradeId, address }),
+
+  async getShippingRates(tradeId: string, parcel: Parcel): Promise<RateOption[]> {
+    const res = await act<{ rates: RateOption[] }>({ action: "getRates", tradeId, parcel });
+    return res.rates;
+  },
+
+  /** Start paying for a label. Sends the browser to Stripe's checkout page. */
+  async payForLabel(tradeId: string, rateId: string, checklist: string[]) {
+    const res = await act<{ url: string }>({
+      action: "checkout",
+      tradeId,
+      rateId,
+      checklist,
+      returnUrl: window.location.href,
+    });
+    window.location.assign(res.url);
+  },
 
   async fileReport(input: {
     targetType: Report["targetType"];
