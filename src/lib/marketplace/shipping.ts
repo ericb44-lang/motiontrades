@@ -206,7 +206,12 @@ export function isAllowedReturnUrl(url: string, allowedOrigins: string[]): boole
   }
 }
 
-export const DEFAULT_ALLOWED_ORIGINS = ["https://ericb44-lang.github.io", "http://localhost:*"];
+export const DEFAULT_ALLOWED_ORIGINS = [
+  "https://motion-trades.com",
+  "https://www.motion-trades.com",
+  "https://ericb44-lang.github.io",
+  "http://localhost:*",
+];
 
 /** Public tracking page for a carrier and tracking number. */
 export function trackingUrl(carrier: string, tracking: string): string {
