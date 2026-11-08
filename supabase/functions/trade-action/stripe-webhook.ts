@@ -186,7 +186,12 @@ async function handleExpired(db: SupabaseClient, session: CheckoutSession) {
 
 export async function handleStripeWebhook(req: Request): Promise<Response> {
   const body = await req.text();
-  const secret = (Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "").trim();
+  // Accept the intended name and the spelling it was saved under in the dashboard.
+  const secret = (
+    Deno.env.get("STRIPE_WEBHOOK_SECRET") ??
+    Deno.env.get("STRIPE_WEBHOOK_SECRETE") ??
+    ""
+  ).trim();
   const header = req.headers.get("Stripe-Signature");
   if (!(await verifyStripeSignature(body, header, secret))) {
     // Never log the secret itself, only enough to tell what's wrong with it.
