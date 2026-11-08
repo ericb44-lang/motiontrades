@@ -10,9 +10,9 @@ import { Route as rootRoute } from "../src/routes/__root";
 
 // The real site's root route renders the full <html>/<body> document (server rendering).
 // Here the page already exists, so render only the app inside #root.
-(rootRoute.options as { shellComponent?: (p: { children: ReactNode }) => ReactNode }).shellComponent = ({
-  children,
-}) => children;
+(
+  rootRoute.options as { shellComponent?: (p: { children: ReactNode }) => ReactNode }
+).shellComponent = ({ children }) => children;
 
 // Embed the stylesheet (the real site links it from the server-rendered <head>).
 const style = document.createElement("style");

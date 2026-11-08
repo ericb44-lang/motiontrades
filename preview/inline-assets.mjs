@@ -12,6 +12,9 @@ const assets = [
   ...readdirSync("public/brand/shots").map((f) => `/brand/shots/${f}`),
 ];
 for (const a of assets) html = html.replaceAll(a, dataUrl(a));
-html = html.replace("</head>", `<link rel="icon" type="image/png" href="${dataUrl("/favicon.png")}"></head>`);
+html = html.replace(
+  "</head>",
+  `<link rel="icon" type="image/png" href="${dataUrl("/favicon.png")}"></head>`,
+);
 writeFileSync(out, html);
 console.log(`Inlined ${assets.length} images and the favicon →`, out);
