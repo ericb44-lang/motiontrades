@@ -38,13 +38,15 @@ export function MakeOfferDialog({
   const [offered, setOffered] = useState<string[]>([]);
   const [requested, setRequested] = useState<string[]>([listing.id]);
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
 
   const toggle = (list: string[], set: (v: string[]) => void, id: string) =>
     set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 
-  const submit = () => {
+  const submit = async () => {
+    setSending(true);
     try {
-      const id = market.proposeTrade({
+      const id = await market.proposeTrade({
         receiverId: listing.ownerId,
         offeredListingIds: offered,
         requestedListingIds: requested,
@@ -52,9 +54,11 @@ export function MakeOfferDialog({
       });
       toast.success("Trade offer sent");
       setOpen(false);
-      navigate({ to: "/trades/$id", params: { id } });
+      void navigate({ to: "/trades/$id", params: { id } });
     } catch (e) {
       toast.error((e as Error).message);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -64,9 +68,9 @@ export function MakeOfferDialog({
         <DialogTrigger asChild>{children}</DialogTrigger>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display">Join to propose a trade</DialogTitle>
+            <DialogTitle className="font-display">Log in to make an offer</DialogTitle>
             <DialogDescription>
-              Make a quick profile first. It only takes a few seconds, and we never ask for your
+              Log in or make a free account first. It only takes a minute, and we never ask for your
               address.
             </DialogDescription>
           </DialogHeader>
@@ -74,9 +78,14 @@ export function MakeOfferDialog({
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button asChild variant="hero">
+            <Button asChild variant="outline">
               <Link to="/join" search={{ redirect: `/listings/${listing.id}` }}>
-                Join / sign in
+                Join
+              </Link>
+            </Button>
+            <Button asChild variant="hero">
+              <Link to="/login" search={{ redirect: `/listings/${listing.id}` }}>
+                Log in
               </Link>
             </Button>
           </DialogFooter>
@@ -143,7 +152,11 @@ export function MakeOfferDialog({
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button variant="hero" onClick={submit} disabled={!offered.length || !requested.length}>
+          <Button
+            variant="hero"
+            onClick={() => void submit()}
+            disabled={sending || !offered.length || !requested.length}
+          >
             Send offer
           </Button>
         </DialogFooter>

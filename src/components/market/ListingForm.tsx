@@ -1,4 +1,4 @@
-import { ImagePlus, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImagePlus, Loader2, Plus, Star, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { fileToCompressedDataUrl } from "@/lib/marketplace/images";
-import type { NewListingInput } from "@/lib/marketplace/store";
+import { MAX_PHOTOS, moveItem } from "@/lib/marketplace/images";
+import { market, type NewListingInput } from "@/lib/marketplace/store";
 import {
   CATEGORIES,
   CONDITIONS,
@@ -24,8 +24,6 @@ import {
 } from "@/lib/marketplace/types";
 import { cn } from "@/lib/utils";
 import { FigureImage } from "./bits";
-
-const MAX_PHOTOS = 5;
 
 export const EMPTY_LISTING: NewListingInput = {
   title: "",
@@ -49,9 +47,12 @@ export function ListingForm({
 }: {
   initial: NewListingInput;
   submitLabel: string;
-  onSubmit: (v: NewListingInput) => void;
+  onSubmit: (v: NewListingInput) => Promise<void> | void;
 }) {
   const [v, setV] = useState<NewListingInput>(initial);
+  const [uploading, setUploading] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [accessory, setAccessory] = useState("");
   const [wish, setWish] = useState("");
   const [errors, setErrors] = useState<
@@ -70,16 +71,28 @@ export function ListingForm({
   };
 
   const upload = async (files: FileList | null) => {
-    if (!files) return;
-    const room = MAX_PHOTOS - v.images.length;
-    const picked = Array.from(files).slice(0, room);
-    try {
-      const urls = await Promise.all(picked.map((f) => fileToCompressedDataUrl(f)));
-      set("images", [...v.images, ...urls]);
-    } catch (e) {
-      toast.error((e as Error).message);
+    if (!files?.length) return;
+    const room = MAX_PHOTOS - v.images.length - uploading;
+    const picked = Array.from(files).slice(0, Math.max(0, room));
+    if (files.length > picked.length)
+      toast.message(`You can add up to ${MAX_PHOTOS} photos per listing.`);
+    if (!picked.length) return;
+    setUploading((n) => n + picked.length);
+    // Upload one at a time so photos keep the order they were picked in.
+    for (const f of picked) {
+      try {
+        const path = await market.uploadPhoto(f);
+        setV((p) => ({ ...p, images: [...p.images, path].slice(0, MAX_PHOTOS) }));
+      } catch (e) {
+        toast.error((e as Error).message);
+      } finally {
+        setUploading((n) => n - 1);
+      }
     }
   };
+
+  const move = (from: number, to: number) =>
+    setV((p) => ({ ...p, images: moveItem(p.images, from, to) }));
 
   const validate = () => {
     const e: Partial<
@@ -99,36 +112,68 @@ export function ListingForm({
   return (
     <form
       className="grid gap-10 lg:grid-cols-[1fr_340px]"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
+        if (uploading) {
+          toast.message("Hang on, your photos are still uploading.");
+          return;
+        }
         if (!validate()) {
           toast.error("Please fix the highlighted fields");
           return;
         }
-        onSubmit({
-          ...v,
-          title: v.title.trim(),
-          brand: v.brand.trim(),
-          line: v.line.trim(),
-          description: v.description.trim(),
-          conditionNotes: v.conditionNotes.trim(),
-        });
+        setSaving(true);
+        try {
+          await onSubmit({
+            ...v,
+            title: v.title.trim(),
+            brand: v.brand.trim(),
+            line: v.line.trim(),
+            description: v.description.trim(),
+            conditionNotes: v.conditionNotes.trim(),
+          });
+        } finally {
+          setSaving(false);
+        }
       }}
     >
       <div className="space-y-10">
-        <Section title="Photos" hint={`Up to ${MAX_PHOTOS}. The first photo is the cover.`}>
-          {v.images.length > 0 && (
+        <Section
+          title="Photos"
+          hint={`Up to ${MAX_PHOTOS}. The first one is the cover. Drag photos (or use the arrows) to change the order.`}
+        >
+          {(v.images.length > 0 || uploading > 0) && (
             <div className="mb-4 grid grid-cols-3 gap-3 sm:grid-cols-5">
               {v.images.map((src, i) => (
                 <div
-                  key={src.slice(0, 40) + i}
-                  className="group relative aspect-square overflow-hidden border bg-surface"
+                  key={src}
+                  draggable
+                  onDragStart={() => setDragFrom(i)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    if (dragFrom !== null) move(dragFrom, i);
+                    setDragFrom(null);
+                  }}
+                  onDragEnd={() => setDragFrom(null)}
+                  className={cn(
+                    "group relative aspect-square cursor-grab overflow-hidden border bg-surface active:cursor-grabbing",
+                    dragFrom === i && "opacity-40",
+                  )}
                 >
                   <FigureImage src={src} alt={`Photo ${i + 1}`} />
-                  {i === 0 && (
-                    <span className="absolute left-1 top-1 bg-primary px-1.5 py-0.5 font-mono text-[0.55rem] uppercase text-primary-foreground">
+                  {i === 0 ? (
+                    <span className="absolute left-1 top-1 bg-primary px-1.5 py-0.5 text-[0.65rem] font-semibold text-primary-foreground">
                       Cover
                     </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => move(i, 0)}
+                      className="absolute left-1 top-1 flex items-center gap-1 bg-background/90 px-1.5 py-0.5 text-[0.65rem] font-semibold"
+                      aria-label={`Make photo ${i + 1} the cover`}
+                    >
+                      <Star className="size-3" /> Make cover
+                    </button>
                   )}
                   <button
                     type="button"
@@ -138,18 +183,54 @@ export function ListingForm({
                         v.images.filter((_, j) => j !== i),
                       )
                     }
-                    className="absolute right-1 top-1 grid size-6 place-items-center bg-background/80"
-                    aria-label="Remove photo"
+                    className="absolute right-1 top-1 grid size-6 place-items-center bg-background/90"
+                    aria-label={`Remove photo ${i + 1}`}
                   >
                     <X className="size-3" />
                   </button>
+                  <div className="absolute inset-x-1 bottom-1 flex justify-between">
+                    <button
+                      type="button"
+                      onClick={() => move(i, i - 1)}
+                      disabled={i === 0}
+                      className="grid size-6 place-items-center bg-background/90 disabled:invisible"
+                      aria-label={`Move photo ${i + 1} earlier`}
+                    >
+                      <ChevronLeft className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => move(i, i + 1)}
+                      disabled={i === v.images.length - 1}
+                      className="grid size-6 place-items-center bg-background/90 disabled:invisible"
+                      aria-label={`Move photo ${i + 1} later`}
+                    >
+                      <ChevronRight className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {Array.from({ length: uploading }, (_, i) => (
+                <div
+                  key={`up-${i}`}
+                  className="grid aspect-square place-items-center border border-dashed bg-surface"
+                >
+                  <Loader2
+                    className="size-5 animate-spin text-muted-foreground"
+                    aria-label="Uploading"
+                  />
                 </div>
               ))}
             </div>
           )}
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
-              <ImagePlus /> Upload photos
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileRef.current?.click()}
+              disabled={v.images.length + uploading >= MAX_PHOTOS}
+            >
+              <ImagePlus /> {v.images.length ? "Add more photos" : "Upload photos"}
             </Button>
             <input
               ref={fileRef}
@@ -158,11 +239,13 @@ export function ListingForm({
               multiple
               className="hidden"
               onChange={(e) => {
-                upload(e.target.files);
+                void upload(e.target.files);
                 e.target.value = "";
               }}
             />
-            <span className="text-xs text-muted-foreground">Photos are saved in this browser.</span>
+            <span className="text-xs text-muted-foreground">
+              {v.images.length}/{MAX_PHOTOS} photos. Good light and a plain background help.
+            </span>
           </div>
           <FieldError msg={errors.images} />
         </Section>
@@ -331,8 +414,14 @@ export function ListingForm({
           <p className="mt-1 text-xs text-muted-foreground">
             {v.condition} · {v.accessories.length} accessories
           </p>
-          <Button type="submit" variant="hero" className="mt-5 w-full">
-            {submitLabel}
+          <Button
+            type="submit"
+            variant="hero"
+            className="mt-5 w-full"
+            disabled={saving || uploading > 0}
+          >
+            {saving ? <Loader2 className="animate-spin" /> : null}
+            {uploading > 0 ? "Uploading photos..." : saving ? "Saving..." : submitLabel}
           </Button>
           <p className="mt-3 text-xs text-muted-foreground">
             Never include addresses, phone numbers or payment info in a listing.

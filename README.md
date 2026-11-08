@@ -5,9 +5,8 @@ agreements, two-way shipping checkpoints and inspection before a trade closes.
 
 Built with TanStack Start (React + server rendering), TypeScript, Tailwind CSS and shadcn/ui.
 
-> **Current state:** all marketplace data is stored in each visitor's own browser
-> (localStorage). There are no real accounts or shared database yet; that is the next phase
-> (Supabase). See "Roadmap" below.
+> **Current state:** real accounts (email + password), a shared marketplace database and photo
+> storage on Supabase. Shipping labels and payments are the next phase. See "Roadmap" below.
 
 ## Run it on your computer
 
@@ -67,6 +66,16 @@ Lovable's servers, not in the export). To use the original: save it as
 `public/brand/motiontrades-logo.png` and change the `src` in
 `src/components/site/SiteHeader.tsx` to `/brand/motiontrades-logo.png`.
 
+## Backend (Supabase)
+
+- Project: `otzzjofrqoimmxvsdife` (dashboard: https://supabase.com/dashboard/project/otzzjofrqoimmxvsdife)
+- `supabase/migrations/`: the database schema and security rules, in order
+- `supabase/functions/trade-action/`: every trade, review and report step runs here
+- `supabase/functions/_shared/`: copies of the rules from `src/lib/marketplace` (`npm run sync:edge`)
+
+The site's Supabase URL and publishable key are in `src/lib/supabase.ts`. They're public by
+design; the database rules protect the data. Never put the secret key in this repo.
+
 ## Project layout
 
 ```
@@ -87,12 +96,13 @@ public/                   Static files (favicon, logo, robots.txt)
 ## Roadmap
 
 - [x] Move off Lovable; runs anywhere Node runs
-- [ ] Supabase project: auth (sign-up / login) and tables for collectors, listings, trades,
+- [x] Supabase: sign-up / login / password reset, tables for collectors, listings, trades,
       reviews, reports
-- [ ] Row-level security: owners edit only their own listings; each side signs only its own
-      part of a trade
-- [ ] Photo uploads to Supabase Storage instead of browser storage
-- [ ] Replace `store.ts` internals with server functions backed by Supabase
+- [x] Row-level security: owners edit only their own listings; each side acts only for itself
+- [x] Photo uploads to Supabase Storage, up to 10 per listing, drag to reorder
+- [x] Trade steps run on the server (`trade-action` edge function) using the tested rules
+- [ ] Custom email sender (Resend) so confirmation and reset emails reach everyone
+- [ ] Shipping labels and payment ($1.50 fee) with Stripe
 - [ ] Admin screen for handling problem reports
 - [ ] Email notifications for offers and trade steps
 - [ ] Deploy to Railway and connect the Squarespace subdomain

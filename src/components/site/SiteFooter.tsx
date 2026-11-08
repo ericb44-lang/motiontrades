@@ -12,8 +12,8 @@ export function SiteFooter() {
             collector who got burned once and didn't want it happening to anyone else.
           </p>
           <p className="mt-4 max-w-sm text-xs text-muted-foreground/80">
-            For now, profiles, listings and trades are saved in your browser. We'll never ask for
-            your address, phone number or payment info.
+            Your email stays private. We'll never ask for your address, phone number or payment
+            info.
           </p>
         </div>
         <div>

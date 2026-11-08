@@ -51,20 +51,28 @@ export function ReportDialog({
   );
   const [description, setDescription] = useState("");
   const [resolution, setResolution] = useState("");
+  const [sending, setSending] = useState(false);
 
-  const submit = () => {
-    const id = market.fileReport({
-      targetType,
-      targetId,
-      category,
-      description: description.trim(),
-      desiredResolution: resolution.trim(),
-    });
-    toast.success("Report submitted", { description: "Our trade safety team will review it." });
-    setOpen(false);
-    setDescription("");
-    setResolution("");
-    onFiled?.(id);
+  const submit = async () => {
+    setSending(true);
+    try {
+      const id = await market.fileReport({
+        targetType,
+        targetId,
+        category,
+        description: description.trim(),
+        desiredResolution: resolution.trim(),
+      });
+      toast.success("Report submitted", { description: "Our trade safety team will review it." });
+      setOpen(false);
+      setDescription("");
+      setResolution("");
+      onFiled?.(id);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -131,7 +139,11 @@ export function ReportDialog({
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={submit} disabled={description.trim().length < 10}>
+          <Button
+            variant="destructive"
+            onClick={() => void submit()}
+            disabled={sending || description.trim().length < 10}
+          >
             Submit report
           </Button>
         </DialogFooter>

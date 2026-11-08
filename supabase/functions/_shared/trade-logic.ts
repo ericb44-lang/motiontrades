@@ -94,7 +94,9 @@ export const bothSigned = (trade: Trade) =>
   Boolean(trade.agreement?.signatures.proposer && trade.agreement?.signatures.receiver);
 
 export const openReportsFor = (trade: Trade, reports: Report[]) =>
-  reports.filter((r) => r.targetType === "trade" && r.targetId === trade.id && r.status !== "resolved");
+  reports.filter(
+    (r) => r.targetType === "trade" && r.targetId === trade.id && r.status !== "resolved",
+  );
 
 export function getTradePhase(trade: Trade, reports: Report[] = []): TradePhase {
   if (trade.status === "pending") return "offer";
@@ -107,7 +109,8 @@ export function getTradePhase(trade: Trade, reports: Report[] = []): TradePhase 
     return "completed";
   }
   if (hasReached(proposer, "delivered") && hasReached(receiver, "delivered")) return "inspection";
-  if (hasReached(proposer, "dropped_off") && hasReached(receiver, "dropped_off")) return "in_transit";
+  if (hasReached(proposer, "dropped_off") && hasReached(receiver, "dropped_off"))
+    return "in_transit";
   return "shipping";
 }
 
@@ -242,7 +245,13 @@ export function signAgreement(trade: Trade, side: Side, at: string): Trade {
   return bothSigned(next) ? touch(next, at, "Both signed. Time to pack.") : next;
 }
 
-export function generateLabel(trade: Trade, side: Side, checklist: string[], at: string, code: string): Trade {
+export function generateLabel(
+  trade: Trade,
+  side: Side,
+  checklist: string[],
+  at: string,
+  code: string,
+): Trade {
   const s = trade.shipments[side];
   if (s.stage !== "packing") throw new Error("Package is not in the packing stage");
   const missing = PACKING_CHECKLIST.filter((c) => !checklist.includes(c));
@@ -252,11 +261,15 @@ export function generateLabel(trade: Trade, side: Side, checklist: string[], at:
       ...trade,
       shipments: {
         ...trade.shipments,
-        [side]: { ...pushStage(s, "label_created", at), packingChecklist: [...checklist], trackingCode: code },
+        [side]: {
+          ...pushStage(s, "label_created", at),
+          packingChecklist: [...checklist],
+          trackingCode: code,
+        },
       },
     },
     at,
-    "completed the packing checklist and created a simulated label",
+    "finished the packing checklist",
     collectorIdFor(trade, side),
   );
 }
@@ -288,7 +301,8 @@ export function canAdvanceCarrier(trade: Trade, side: Side) {
 }
 
 export function advanceCarrier(trade: Trade, side: Side, at: string): Trade {
-  if (!canAdvanceCarrier(trade, side)) throw new Error("Tracking unlocks once both packages are dropped off");
+  if (!canAdvanceCarrier(trade, side))
+    throw new Error("Tracking unlocks once both packages are dropped off");
   const s = trade.shipments[side];
   const nextStage = SHIP_STAGES[stageIndex(s.stage) + 1]!;
   return touch(
@@ -319,7 +333,8 @@ export function submitInspection(trade: Trade, side: Side, inspection: Inspectio
   if (inspection.result === "approved") {
     const required = itemsSentBy(trade, side).flatMap((i) => i.accessories);
     const missing = required.filter((a) => !inspection.checkedAccessories.includes(a));
-    if (missing.length) throw new Error("Check off every accessory before approving, or report a problem");
+    if (missing.length)
+      throw new Error("Check off every accessory before approving, or report a problem");
   }
   return touch(
     { ...trade, shipments: { ...trade.shipments, [side]: { ...s, inspection } } },
@@ -397,8 +412,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export function validateEmail(email: string, takenEmails: string[]): string | undefined {
   const e = email.trim().toLowerCase();
   if (!e) return "Enter your email address";
-  if (e.length > 254 || !EMAIL_RE.test(e)) return "Enter a valid email address, like name@example.com";
-  if (takenEmails.map((t) => t.toLowerCase()).includes(e)) return "A profile with that email already exists";
+  if (e.length > 254 || !EMAIL_RE.test(e))
+    return "Enter a valid email address, like name@example.com";
+  if (takenEmails.map((t) => t.toLowerCase()).includes(e))
+    return "A profile with that email already exists";
   return undefined;
 }
 
@@ -409,7 +426,8 @@ export function validateCollectorProfile(
   const e: Partial<Record<"displayName" | "username", string>> = {};
   if (input.displayName.trim().length < 2) e.displayName = "Enter a display name (2+ characters)";
   const u = input.username.trim().toLowerCase();
-  if (!USERNAME_RE.test(u)) e.username = "3–20 characters: lowercase letters, numbers or underscores";
+  if (!USERNAME_RE.test(u))
+    e.username = "3–20 characters: lowercase letters, numbers or underscores";
   else if (takenUsernames.includes(u)) e.username = "That username is already taken";
   return e;
 }

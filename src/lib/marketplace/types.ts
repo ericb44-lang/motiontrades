@@ -1,5 +1,5 @@
-// Domain types for MOTIONTRADES. These mirror the shape a future database
-// would store, so the in-browser demo store can be swapped for real tables.
+// Domain types for MOTIONTRADES. Shared by the browser app and the trade-action edge function
+// (see rows.ts for how they map to database rows).
 
 export type Condition = "Mint in Box" | "Near Mint" | "Excellent" | "Good" | "Fair";
 
@@ -7,7 +7,14 @@ export const CONDITIONS: Condition[] = ["Mint in Box", "Near Mint", "Excellent",
 
 export type Category = "Sci-Fi" | "Fantasy" | "Mecha" | "Adventure" | "Cyberpunk" | "Space";
 
-export const CATEGORIES: Category[] = ["Sci-Fi", "Fantasy", "Mecha", "Adventure", "Cyberpunk", "Space"];
+export const CATEGORIES: Category[] = [
+  "Sci-Fi",
+  "Fantasy",
+  "Mecha",
+  "Adventure",
+  "Cyberpunk",
+  "Space",
+];
 
 export type Scale = '6"' | '7"' | "1/12" | "1/6" | '4"';
 
@@ -17,8 +24,6 @@ export interface Collector {
   id: string;
   username: string;
   displayName: string;
-  /** Private contact email. Never shown on public pages. Older browser-saved profiles may lack it. */
-  email?: string;
   region: string; // broad region only — never an address
   bio: string;
   joinedAt: string;
@@ -57,7 +62,7 @@ export interface Listing {
   description: string;
   accessories: string[];
   lookingFor: string[];
-  images: string[]; // image keys (bundled samples) or data URLs (user uploads)
+  images: string[]; // photo paths in the listing-photos bucket; the first one is the cover
   status: ListingStatus;
   createdAt: string;
   views: number;
@@ -100,7 +105,7 @@ export interface Inspection {
 export interface Shipment {
   stage: ShipStage;
   history: { stage: ShipStage; at: string }[];
-  trackingCode?: string | undefined; // simulated, never a real carrier number
+  trackingCode?: string | undefined; // MOTIONTRADES trade code for now; real carrier tracking comes with shipping labels
   packingChecklist: string[];
   deliveryConfirmedAt?: string | undefined;
   inspection?: Inspection | undefined;

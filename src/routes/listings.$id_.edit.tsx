@@ -79,10 +79,14 @@ function EditListing() {
           <ListingForm
             initial={initial}
             submitLabel="Save changes"
-            onSubmit={(v) => {
-              market.updateListing(id, v);
-              toast.success("Listing updated");
-              navigate({ to: "/listings/$id", params: { id } });
+            onSubmit={async (v) => {
+              try {
+                await market.updateListing(id, v);
+                toast.success("Listing updated");
+                void navigate({ to: "/listings/$id", params: { id } });
+              } catch (e) {
+                toast.error((e as Error).message);
+              }
             }}
           />
         </div>

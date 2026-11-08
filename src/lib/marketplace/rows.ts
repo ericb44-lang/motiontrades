@@ -93,7 +93,9 @@ export const rowToListing = (r: ListingRow): Listing => ({
   views: r.views,
 });
 
-export const listingToRow = (l: Omit<Listing, "id" | "ownerId" | "createdAt" | "views" | "status">) => ({
+export const listingToRow = (
+  l: Omit<Listing, "id" | "ownerId" | "createdAt" | "views" | "status">,
+) => ({
   title: l.title,
   line: l.line,
   brand: l.brand,

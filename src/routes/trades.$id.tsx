@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AlertTriangle, ArrowLeft, Bot, Check, Flag, MessageSquare, Repeat, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Flag, MessageSquare, Repeat, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -109,11 +109,10 @@ function TradePage() {
   const stepIdx = STEPS.findIndex((s) => s.key === phase);
   const accepted = trade.status === "accepted";
 
-  const simulate = () => {
+  const respond = async (fn: () => Promise<unknown>, message: string) => {
     try {
-      const msg = market.simulateCounterpart(trade.id);
-      if (msg) toast.success(msg);
-      else toast(`Nothing for ${other.displayName} to do right now`);
+      await fn();
+      toast.success(message);
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -213,19 +212,20 @@ function TradePage() {
                     <>
                       <Button
                         variant="hero"
-                        onClick={() => {
-                          market.acceptOffer(trade.id);
-                          toast.success("Offer accepted. Your agreement is ready.");
-                        }}
+                        onClick={() =>
+                          void respond(
+                            () => market.acceptOffer(trade.id),
+                            "Offer accepted. Your agreement is ready.",
+                          )
+                        }
                       >
                         <Check /> Accept offer
                       </Button>
                       <Button
                         variant="outline"
-                        onClick={() => {
-                          market.declineOffer(trade.id);
-                          toast("Offer declined");
-                        }}
+                        onClick={() =>
+                          void respond(() => market.declineOffer(trade.id), "Offer declined")
+                        }
                       >
                         <X /> Decline
                       </Button>
@@ -233,10 +233,9 @@ function TradePage() {
                   ) : (
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        market.withdrawOffer(trade.id);
-                        toast("Offer withdrawn");
-                      }}
+                      onClick={() =>
+                        void respond(() => market.withdrawOffer(trade.id), "Offer withdrawn")
+                      }
                     >
                       <X /> Withdraw offer
                     </Button>
@@ -303,19 +302,6 @@ function TradePage() {
                 </dd>
               </div>
             </dl>
-          </div>
-
-          <div className="border border-dashed border-info/40 bg-info/5 p-5">
-            <p className="flex items-center gap-2 text-sm font-semibold">
-              <Bot className="size-4 text-info" /> Demo controls
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {other.displayName} is a fictional collector. Play their side to walk the full trade
-              flow.
-            </p>
-            <Button variant="outline" size="sm" className="mt-4 w-full" onClick={simulate}>
-              Simulate {other.displayName.split(" ")[0]}'s next step
-            </Button>
           </div>
 
           <div className="border bg-card p-5">

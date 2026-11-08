@@ -1,13 +1,12 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowRight, Plus, X } from "lucide-react";
+import { ArrowRight, Loader2, MailCheck, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CollectorAvatar } from "@/components/market/bits";
-import { market, useMarket, useMarketHydrated } from "@/lib/marketplace/store";
+import { MIN_PASSWORD_LENGTH, market, useMe } from "@/lib/marketplace/store";
 import { validateCollectorProfile, validateEmail } from "@/lib/marketplace/trade-logic";
 
 interface JoinSearch {
@@ -47,52 +46,112 @@ export const Route = createFileRoute("/join")({
 function JoinPage() {
   const { redirect } = Route.useSearch();
   const router = useRouter();
-  const state = useMarket();
-  const hydrated = useMarketHydrated();
+  const me = useMe();
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
   const [region, setRegion] = useState("");
   const [bio, setBio] = useState("");
   const [lines, setLines] = useState<string[]>([]);
   const [line, setLine] = useState("");
-  const [errors, setErrors] = useState<
-    Partial<Record<"displayName" | "username" | "email", string>>
-  >({});
+  type Field = "displayName" | "username" | "email" | "password";
+  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
 
   // redirect is validated above to be an in-app path.
   const go = () => router.history.push(redirect ?? "/");
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const errs: Partial<Record<"displayName" | "username" | "email", string>> =
-      validateCollectorProfile(
-        { displayName, username },
-        state.collectors.map((c) => c.username),
-      );
-    const emailError = validateEmail(
-      email,
-      state.collectors.flatMap((c) => (c.email ? [c.email] : [])),
+    const errs: Partial<Record<Field, string>> = validateCollectorProfile(
+      { displayName, username },
+      [],
     );
+    const emailError = validateEmail(email, []);
     if (emailError) errs.email = emailError;
+    if (password.length < MIN_PASSWORD_LENGTH)
+      errs.password = `Use at least ${MIN_PASSWORD_LENGTH} characters`;
     setErrors(errs);
     if (Object.keys(errs).length) return;
+    setBusy(true);
     try {
-      market.registerCollector({ displayName, username, email, region, bio, favoriteLines: lines });
-      toast.success("You're in. Welcome to MOTIONTRADES!");
-      go();
+      const { needsConfirmation } = await market.registerCollector({
+        displayName,
+        username,
+        email,
+        password,
+        region,
+        bio,
+        favoriteLines: lines,
+      });
+      if (needsConfirmation) {
+        setSentTo(email.trim().toLowerCase());
+      } else {
+        toast.success("You're in. Welcome to MOTIONTRADES!");
+        go();
+      }
     } catch (err) {
-      toast.error((err as Error).message);
+      const message = (err as Error).message;
+      if (/username/i.test(message)) setErrors({ username: message });
+      else if (/email/i.test(message)) setErrors({ email: message });
+      else toast.error(message);
+    } finally {
+      setBusy(false);
     }
   };
+
+  if (sentTo) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-20 text-center sm:px-6">
+        <MailCheck className="mx-auto size-10 text-primary" />
+        <h1 className="mt-6 text-3xl font-extrabold">Check your email</h1>
+        <p className="mt-3 text-muted-foreground">
+          We sent a link to <span className="font-semibold text-foreground">{sentTo}</span>. Click
+          it to confirm your account, then you can start trading.
+        </p>
+        <p className="mt-6 text-sm text-muted-foreground">
+          Nothing there after a few minutes? Check spam, or{" "}
+          <button
+            type="button"
+            className="font-semibold text-primary underline-offset-4 hover:underline"
+            onClick={() =>
+              void market.resendConfirmation(sentTo).then(
+                () => toast.success("Sent it again"),
+                (e: Error) => toast.error(e.message),
+              )
+            }
+          >
+            send it again
+          </button>
+          .
+        </p>
+      </div>
+    );
+  }
+
+  if (me) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-20 text-center sm:px-6">
+        <h1 className="text-3xl font-extrabold">You're logged in as @{me.username}</h1>
+        <div className="mt-6 flex justify-center gap-3">
+          <Button variant="hero" onClick={go}>
+            Keep going <ArrowRight />
+          </Button>
+          <Button variant="outline" onClick={() => void market.signOut()}>
+            Log out
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const addLine = () => {
     const t = line.trim().slice(0, 40);
     if (t && !lines.includes(t) && lines.length < 6) setLines([...lines, t]);
     setLine("");
   };
-
-  const others = hydrated ? state.collectors.filter((c) => c.id !== state.currentUserId) : [];
 
   return (
     <div className="mx-auto grid max-w-5xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_320px]">
@@ -103,7 +162,7 @@ function JoinPage() {
           stays private, and we'll never ask for your address, phone number or payment info.
         </p>
 
-        <form onSubmit={submit} noValidate className="mt-10 space-y-6">
+        <form onSubmit={(e) => void submit(e)} noValidate className="mt-10 space-y-6">
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="j-name">Display name</Label>
@@ -153,6 +212,25 @@ function JoinPage() {
             ) : (
               <p className="text-xs text-muted-foreground">
                 Only used for trade updates. Nobody else sees it.
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="j-pass">Password</Label>
+            <Input
+              id="j-pass"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              maxLength={72}
+              className="bg-surface"
+            />
+            {errors.password ? (
+              <p className="text-xs text-destructive">{errors.password}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                At least {MIN_PASSWORD_LENGTH} characters.
               </p>
             )}
           </div>
@@ -219,48 +297,22 @@ function JoinPage() {
               </div>
             )}
           </div>
-          <Button type="submit" variant="hero" size="lg">
-            Create profile <ArrowRight />
+          <Button type="submit" variant="hero" size="lg" disabled={busy}>
+            {busy ? <Loader2 className="animate-spin" /> : null} Create account <ArrowRight />
           </Button>
         </form>
       </div>
 
       <aside className="space-y-4">
         <div className="clip-chamfer border bg-surface p-5">
-          <p className="eyebrow mb-3">Already have a profile?</p>
-          {others.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Profiles you create in this browser will appear here.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {others.map((c) => (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      market.signIn(c.id);
-                      toast.success(`Signed in as ${c.displayName}`);
-                      go();
-                    }}
-                    className="flex w-full items-center gap-3 border bg-card p-3 text-left transition-colors hover:border-primary"
-                  >
-                    <CollectorAvatar collector={c} size="sm" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{c.displayName}</span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        @{c.username}
-                      </span>
-                    </span>
-                    <ArrowRight className="size-4 text-muted-foreground" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <p className="font-bold">Already have an account?</p>
+          <Button asChild variant="outline" className="mt-4 w-full">
+            <Link to="/login" search={redirect ? { redirect } : {}}>
+              Log in
+            </Link>
+          </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Profiles are stored in this browser for now.{" "}
           <Link to="/safety" className="underline-offset-4 hover:underline">
             How trade safety works
           </Link>

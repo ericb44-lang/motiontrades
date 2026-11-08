@@ -40,10 +40,14 @@ function NewListing() {
             <ListingForm
               initial={EMPTY_LISTING}
               submitLabel="Publish listing"
-              onSubmit={(v) => {
-                const id = market.createListing(v);
-                toast.success("Listing published");
-                navigate({ to: "/listings/$id", params: { id } });
+              onSubmit={async (v) => {
+                try {
+                  const id = await market.createListing(v);
+                  toast.success("Listing published");
+                  void navigate({ to: "/listings/$id", params: { id } });
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
               }}
             />
           </div>

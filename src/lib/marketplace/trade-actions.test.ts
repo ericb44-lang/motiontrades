@@ -40,6 +40,7 @@ describe("who can act on a trade", () => {
       } catch (e) {
         return e;
       }
+      return undefined;
     })();
     expect(err).toBeInstanceOf(ActionError);
     expect((err as ActionError).status).toBe(403);
@@ -102,7 +103,9 @@ describe("who can act on a trade", () => {
   });
 
   it("can't review before the trade is complete", () => {
-    expect(() => buildReview(pending(), RECEIVER, [], 5, "", AT)).toThrow(/once the trade is complete/);
+    expect(() => buildReview(pending(), RECEIVER, [], 5, "", AT)).toThrow(
+      /once the trade is complete/,
+    );
   });
 });
 
@@ -129,7 +132,13 @@ describe("making an offer", () => {
 
   it("rejects offering someone else's figure as your own", () => {
     expect(() =>
-      buildProposal({ ...base, offered: [listing("l1", "c")], requested: [listing("l2", "b")], offeredIds: ["l1"], requestedIds: ["l2"] }),
+      buildProposal({
+        ...base,
+        offered: [listing("l1", "c")],
+        requested: [listing("l2", "b")],
+        offeredIds: ["l1"],
+        requestedIds: ["l2"],
+      }),
     ).toThrow(/your figures/);
   });
 
@@ -147,7 +156,14 @@ describe("making an offer", () => {
 
   it("rejects trading with yourself", () => {
     expect(() =>
-      buildProposal({ ...base, receiverId: "a", offered: [], requested: [], offeredIds: ["x"], requestedIds: ["y"] }),
+      buildProposal({
+        ...base,
+        receiverId: "a",
+        offered: [],
+        requested: [],
+        offeredIds: ["x"],
+        requestedIds: ["y"],
+      }),
     ).toThrow(/yourself/);
   });
 });
@@ -163,7 +179,13 @@ describe("request parsing", () => {
   });
 
   it("caps long text instead of storing it", () => {
-    const r = parseRequest({ action: "propose", receiverId: "b", offeredListingIds: ["1"], requestedListingIds: ["2"], message: "x".repeat(5000) });
+    const r = parseRequest({
+      action: "propose",
+      receiverId: "b",
+      offeredListingIds: ["1"],
+      requestedListingIds: ["2"],
+      message: "x".repeat(5000),
+    });
     expect(r.action === "propose" && r.message.length).toBe(1000);
   });
 });

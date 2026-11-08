@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ConditionBadge, FigureImage } from "@/components/market/bits";
 import { ReportDialog } from "@/components/market/ReportDialog";
-import { REPORT_CATEGORY_LABELS, market } from "@/lib/marketplace/store";
+import { REPORT_CATEGORY_LABELS, market, useIsAdmin } from "@/lib/marketplace/store";
 import {
   PACKING_CHECKLIST,
   SHIP_STAGE_LABELS,
@@ -40,9 +40,10 @@ import {
 import { formatDateTime, formatShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const run = (fn: () => void, ok?: string) => {
+/** Run a trade step, then show a success message or the server's explanation of what went wrong. */
+const run = async (fn: () => unknown, ok?: string) => {
   try {
-    fn();
+    await fn();
     if (ok) toast.success(ok);
   } catch (e) {
     toast.error((e as Error).message);
@@ -262,7 +263,7 @@ export function ShipmentPanel({
       aside={
         s.trackingCode ? (
           <span className="flex items-center gap-2 font-mono text-xs">
-            {s.trackingCode} <Badge variant="muted">Simulated</Badge>
+            {s.trackingCode} <Badge variant="muted">Trade code</Badge>
           </span>
         ) : (
           <Badge variant="muted">No label yet</Badge>
@@ -338,16 +339,13 @@ export function ShipmentPanel({
                 variant="hero"
                 disabled={checks.length < PACKING_CHECKLIST.length}
                 onClick={() =>
-                  run(
-                    () => market.generateLabel(trade.id, senderSide, checks),
-                    "Simulated label created",
-                  )
+                  run(() => market.generateLabel(trade.id, senderSide, checks), "Packing confirmed")
                 }
               >
-                <ScanLine /> Generate simulated label
+                <ScanLine /> Confirm packing
               </Button>
               <p className="text-xs text-muted-foreground">
-                Demo labels don't use or collect any address.
+                You'll print your own shipping label for now. Keep the trade code with your package.
               </p>
             </div>
           </div>
@@ -384,14 +382,20 @@ export function ShipmentPanel({
           </div>
         )}
 
-        {canAdvanceCarrier(trade, senderSide) && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => run(() => market.simulateCarrierScan(trade.id, senderSide))}
-          >
-            <Truck /> Simulate carrier scan
-          </Button>
+        {isMine && canAdvanceCarrier(trade, senderSide) && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void run(() => market.updateTracking(trade.id))}
+            >
+              <Truck /> Mark as{" "}
+              {SHIP_STAGE_LABELS[SHIP_STAGES[stageIndex(s.stage) + 1]!].toLowerCase()}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Update this when the carrier tracking changes.
+            </span>
+          </div>
         )}
 
         {/* Recipient: delivery + inspection */}
@@ -586,6 +590,7 @@ function InspectionForm({ trade, senderSide }: { trade: Trade; senderSide: Side 
 /* ----------------------------- Reports ----------------------------- */
 
 export function ReportsPanel({ reports }: { reports: Report[] }) {
+  const isAdmin = useIsAdmin();
   if (!reports.length) return null;
   return (
     <Panel title="Problem reports" icon={AlertTriangle} className="border-destructive/40">
@@ -622,14 +627,14 @@ export function ReportsPanel({ reports }: { reports: Report[] }) {
                 </li>
               ))}
             </ol>
-            {r.status !== "resolved" && (
+            {isAdmin && r.status !== "resolved" && (
               <Button
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() => market.advanceReport(r.id)}
+                onClick={() => void run(() => market.advanceReport(r.id), "Report updated")}
               >
-                Simulate safety team update
+                {r.status === "open" ? "Safety team: start review" : "Safety team: mark resolved"}
               </Button>
             )}
           </div>

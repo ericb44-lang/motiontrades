@@ -175,20 +175,24 @@ function MyListingsInner({ meId }: { meId: string }) {
                   </DropdownMenuItem>
                   {l.status === "active" && (
                     <DropdownMenuItem
-                      onSelect={() => {
-                        market.setListingStatus(l.id, "paused");
-                        toast("Listing paused");
-                      }}
+                      onSelect={() =>
+                        void market.setListingStatus(l.id, "paused").then(
+                          () => toast("Listing paused"),
+                          (e: Error) => toast.error(e.message),
+                        )
+                      }
                     >
                       <Pause /> Pause
                     </DropdownMenuItem>
                   )}
                   {l.status === "paused" && (
                     <DropdownMenuItem
-                      onSelect={() => {
-                        market.setListingStatus(l.id, "active");
-                        toast.success("Listing is live again");
-                      }}
+                      onSelect={() =>
+                        void market.setListingStatus(l.id, "active").then(
+                          () => toast.success("Listing is live again"),
+                          (e: Error) => toast.error(e.message),
+                        )
+                      }
                     >
                       <Play /> Resume
                     </DropdownMenuItem>
@@ -220,9 +224,14 @@ function MyListingsInner({ meId }: { meId: string }) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (toDelete) market.deleteListing(toDelete.id);
-                toast("Listing deleted");
+                const target = toDelete;
                 setToDelete(null);
+                if (target) {
+                  void market.deleteListing(target.id).then(
+                    () => toast("Listing deleted"),
+                    (e: Error) => toast.error(e.message),
+                  );
+                }
               }}
             >
               Delete

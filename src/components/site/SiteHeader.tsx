@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { LogOut, Menu, Plus, Search, Trash2, UserPlus } from "lucide-react";
+import { LogIn, LogOut, Menu, Plus, Search, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,11 +103,18 @@ export function SiteHeader() {
         </Button>
 
         {!me && (
-          <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
-            <Link to="/join">
-              <UserPlus /> Join
-            </Link>
-          </Button>
+          <>
+            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+              <Link to="/login">
+                <LogIn /> Log in
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
+              <Link to="/join">
+                <UserPlus /> Join
+              </Link>
+            </Button>
+          </>
         )}
 
         {me && (
@@ -137,27 +144,9 @@ export function SiteHeader() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onSelect={() => {
-                  market.signOut();
-                  toast("Signed out");
-                }}
+                onSelect={() => void market.signOut().then(() => toast("Logged out"))}
               >
-                <LogOut /> Sign out
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onSelect={() => {
-                  if (
-                    !window.confirm(
-                      "Delete every profile, listing and trade saved in this browser?",
-                    )
-                  )
-                    return;
-                  market.clearLocalData();
-                  toast.success("All saved data cleared");
-                }}
-              >
-                <Trash2 /> Clear data in this browser
+                <LogOut /> Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -202,23 +191,44 @@ export function SiteHeader() {
                 </Link>
               ))}
               {me ? (
-                <Link
-                  to="/collectors/$username"
-                  params={{ username: me.username }}
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 border-b px-2 py-4"
-                >
-                  <CollectorAvatar collector={me} size="sm" />
-                  <span className="text-sm font-semibold">My profile</span>
-                </Link>
+                <>
+                  <Link
+                    to="/collectors/$username"
+                    params={{ username: me.username }}
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 border-b px-2 py-4"
+                  >
+                    <CollectorAvatar collector={me} size="sm" />
+                    <span className="text-sm font-semibold">My profile</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      void market.signOut().then(() => toast("Logged out"));
+                    }}
+                    className="flex items-center gap-3 border-b px-2 py-4 text-left text-sm font-bold"
+                  >
+                    <LogOut className="size-4 text-muted-foreground" /> Log out
+                  </button>
+                </>
               ) : (
-                <Link
-                  to="/join"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 border-b px-2 py-4 font-display text-sm font-bold"
-                >
-                  <UserPlus className="size-4 text-primary" /> Join / sign in
-                </Link>
+                <>
+                  <Link
+                    to="/login"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 border-b px-2 py-4 font-display text-sm font-bold"
+                  >
+                    <LogIn className="size-4 text-primary" /> Log in
+                  </Link>
+                  <Link
+                    to="/join"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-3 border-b px-2 py-4 font-display text-sm font-bold"
+                  >
+                    <UserPlus className="size-4 text-primary" /> Join
+                  </Link>
+                </>
               )}
             </nav>
             <div className="mt-6 px-4">

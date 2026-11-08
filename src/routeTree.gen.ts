@@ -13,7 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as JoinRouteImport } from './routes/join'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as MyListingsRouteImport } from './routes/my-listings'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SafetyRouteImport } from './routes/safety'
 import { Route as CollectorsUsernameRouteImport } from './routes/collectors.$username'
 import { Route as ListingsIdRouteImport } from './routes/listings.$id'
@@ -42,9 +44,19 @@ const JoinRoute = JoinRouteImport.update({
   path: '/join',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MyListingsRoute = MyListingsRouteImport.update({
   id: '/my-listings',
   path: '/my-listings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SafetyRoute = SafetyRouteImport.update({
@@ -88,7 +100,9 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/browse': typeof BrowseRoute
   '/join': typeof JoinRoute
+  '/login': typeof LoginRoute
   '/my-listings': typeof MyListingsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/safety': typeof SafetyRoute
   '/collectors/$username': typeof CollectorsUsernameRoute
   '/listings/$id': typeof ListingsIdRoute
@@ -102,7 +116,9 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/browse': typeof BrowseRoute
   '/join': typeof JoinRoute
+  '/login': typeof LoginRoute
   '/my-listings': typeof MyListingsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/safety': typeof SafetyRoute
   '/collectors/$username': typeof CollectorsUsernameRoute
   '/listings/$id': typeof ListingsIdRoute
@@ -117,7 +133,9 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/browse': typeof BrowseRoute
   '/join': typeof JoinRoute
+  '/login': typeof LoginRoute
   '/my-listings': typeof MyListingsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/safety': typeof SafetyRoute
   '/collectors/$username': typeof CollectorsUsernameRoute
   '/listings/$id': typeof ListingsIdRoute
@@ -133,7 +151,9 @@ export interface FileRouteTypes {
     | '/about'
     | '/browse'
     | '/join'
+    | '/login'
     | '/my-listings'
+    | '/reset-password'
     | '/safety'
     | '/collectors/$username'
     | '/listings/$id'
@@ -147,7 +167,9 @@ export interface FileRouteTypes {
     | '/about'
     | '/browse'
     | '/join'
+    | '/login'
     | '/my-listings'
+    | '/reset-password'
     | '/safety'
     | '/collectors/$username'
     | '/listings/$id'
@@ -161,7 +183,9 @@ export interface FileRouteTypes {
     | '/about'
     | '/browse'
     | '/join'
+    | '/login'
     | '/my-listings'
+    | '/reset-password'
     | '/safety'
     | '/collectors/$username'
     | '/listings/$id'
@@ -176,7 +200,9 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   BrowseRoute: typeof BrowseRoute
   JoinRoute: typeof JoinRoute
+  LoginRoute: typeof LoginRoute
   MyListingsRoute: typeof MyListingsRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SafetyRoute: typeof SafetyRoute
   CollectorsUsernameRoute: typeof CollectorsUsernameRoute
   ListingsIdRoute: typeof ListingsIdRoute
@@ -216,11 +242,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JoinRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/my-listings': {
       id: '/my-listings'
       path: '/my-listings'
       fullPath: '/my-listings'
       preLoaderRoute: typeof MyListingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/safety': {
@@ -280,7 +320,9 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   BrowseRoute: BrowseRoute,
   JoinRoute: JoinRoute,
+  LoginRoute: LoginRoute,
   MyListingsRoute: MyListingsRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SafetyRoute: SafetyRoute,
   CollectorsUsernameRoute: CollectorsUsernameRoute,
   ListingsIdRoute: ListingsIdRoute,

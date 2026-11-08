@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { UserPlus } from "lucide-react";
+import { LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMarketHydrated, useMe } from "@/lib/marketplace/store";
@@ -8,8 +8,8 @@ import { EmptyState } from "./bits";
 
 /** Renders children only for a signed-in collector; otherwise invites the visitor to join. */
 export function RequireCollector({
-  title = "Create your collector profile",
-  body = "Join MOTIONTRADES to list figures, make offers and manage trades.",
+  title = "Log in to keep going",
+  body = "Log in or make a free account to list figures, make offers and manage trades.",
   children,
 }: {
   title?: string;
@@ -34,11 +34,18 @@ export function RequireCollector({
           title={title}
           body={body}
           action={
-            <Button asChild variant="hero">
-              <Link to="/join" search={{ redirect: location.pathname }}>
-                <UserPlus /> Join / sign in
-              </Link>
-            </Button>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Button asChild variant="hero">
+                <Link to="/login" search={{ redirect: location.pathname }}>
+                  <LogIn /> Log in
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/join" search={{ redirect: location.pathname }}>
+                  <UserPlus /> Join
+                </Link>
+              </Button>
+            </div>
           }
         />
       </div>

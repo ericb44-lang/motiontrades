@@ -43,6 +43,7 @@ export default defineConfig(({ command }) => ({
       "@radix-ui/react-radio-group",
       "@radix-ui/react-tabs",
       "@radix-ui/react-checkbox",
+      "@supabase/supabase-js",
     ],
   },
 }));

@@ -12,5 +12,7 @@ export default defineConfig({
   publicDir: false,
   plugins: [tsConfigPaths({ root: ".." }), tailwindcss(), viteReact(), viteSingleFile()],
   resolve: { dedupe: ["react", "react-dom", "@tanstack/react-router"] },
+  // The preview uses #/ links, so email links (confirm account, reset password) must too.
+  define: { "import.meta.env.VITE_HASH_ROUTES": JSON.stringify("true") },
   build: { outDir: "dist", emptyOutDir: true, minify: process.env.NOMIN ? false : true },
 });

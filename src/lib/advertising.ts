@@ -32,8 +32,11 @@ export function shouldShowAdvertisement(
   pathname: string,
   settings: { enabled: boolean; showReservedSpaces: boolean } = advertisingConfig,
 ): boolean {
-  return placement !== "home-brands" && isPlacementAllowed(placement, pathname) &&
-    (settings.enabled || settings.showReservedSpaces);
+  return (
+    placement !== "home-brands" &&
+    isPlacementAllowed(placement, pathname) &&
+    (settings.enabled || settings.showReservedSpaces)
+  );
 }
 
 export function shouldShowSponsoredBrands(

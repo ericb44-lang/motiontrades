@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Calendar, Eye, Flag, Package, Pencil, Repeat, Ruler, Tag } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -17,6 +17,7 @@ import { MakeOfferDialog } from "@/components/market/MakeOfferDialog";
 import { ReportDialog } from "@/components/market/ReportDialog";
 import {
   findCollector,
+  market,
   reputationFor,
   useMarket,
   useMarketHydrated,
@@ -49,6 +50,12 @@ function ListingPage() {
   const hydrated = useMarketHydrated();
   const listing = state.listings.find((l) => l.id === id);
   const [active, setActive] = useState(0);
+  const isOwn = !!listing && listing.ownerId === state.currentUserId;
+
+  // Count one view per visit (the database ignores views of your own listing).
+  useEffect(() => {
+    if (hydrated && listing && !isOwn) market.recordView(listing.id);
+  }, [hydrated, listing?.id, isOwn]);
 
   if (!listing) {
     return (

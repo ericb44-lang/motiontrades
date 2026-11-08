@@ -3,15 +3,7 @@
 // trade-logic.ts. Pure functions (no database, no network), so the same code runs
 // in the Supabase edge function and in unit tests.
 import * as logic from "./trade-logic.ts";
-import type {
-  Inspection,
-  Listing,
-  Report,
-  ReportCategory,
-  Review,
-  Side,
-  Trade,
-} from "./types.ts";
+import type { Inspection, Listing, Report, ReportCategory, Review, Side, Trade } from "./types.ts";
 
 export class ActionError extends Error {
   constructor(
@@ -71,12 +63,18 @@ const TRADE_STEP_ACTIONS = new Set([
   "inspect",
 ]);
 
-export const isTradeStep = (r: ActionRequest): r is TradeStepAction => TRADE_STEP_ACTIONS.has(r.action);
+export const isTradeStep = (r: ActionRequest): r is TradeStepAction =>
+  TRADE_STEP_ACTIONS.has(r.action);
 
 const REPORT_CATEGORIES = Object.keys(logic.REPORT_CATEGORY_LABELS) as ReportCategory[];
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const strList = (v: unknown, maxItems: number, maxLen: number) =>
-  Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, maxItems).map((x) => x.slice(0, maxLen)) : [];
+  Array.isArray(v)
+    ? v
+        .filter((x): x is string => typeof x === "string")
+        .slice(0, maxItems)
+        .map((x) => x.slice(0, maxLen))
+    : [];
 
 /** Turn untrusted JSON into a well-formed request, or throw. */
 export function parseRequest(body: unknown): ActionRequest {
@@ -100,7 +98,8 @@ export function parseRequest(body: unknown): ActionRequest {
     case "inspect": {
       if (!tradeId) throw new ActionError("Missing trade");
       const result = b["result"];
-      if (result !== "approved" && result !== "issue") throw new ActionError("Bad inspection result");
+      if (result !== "approved" && result !== "issue")
+        throw new ActionError("Bad inspection result");
       return {
         action,
         tradeId,
@@ -117,12 +116,19 @@ export function parseRequest(body: unknown): ActionRequest {
       if (!offeredListingIds.length || !requestedListingIds.length) {
         throw new ActionError("Pick at least one figure on each side");
       }
-      return { action, receiverId, offeredListingIds, requestedListingIds, message: str(b["message"], 1000) };
+      return {
+        action,
+        receiverId,
+        offeredListingIds,
+        requestedListingIds,
+        message: str(b["message"], 1000),
+      };
     }
     case "review": {
       const rating = Number(b["rating"]);
       if (!tradeId) throw new ActionError("Missing trade");
-      if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new ActionError("Rating must be 1 to 5 stars");
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5)
+        throw new ActionError("Rating must be 1 to 5 stars");
       return { action, tradeId, rating, comment: str(b["comment"], 1000) };
     }
     case "report": {
@@ -135,7 +141,8 @@ export function parseRequest(body: unknown): ActionRequest {
         throw new ActionError("Pick what went wrong");
       }
       const description = str(b["description"], 2000);
-      if (description.length < 10) throw new ActionError("Describe the problem in at least 10 characters");
+      if (description.length < 10)
+        throw new ActionError("Describe the problem in at least 10 characters");
       const targetId = str(b["targetId"], 64);
       if (!targetId) throw new ActionError("Missing report target");
       return {
@@ -165,7 +172,13 @@ export function requireSide(trade: Trade, userId: string): Side {
 }
 
 /** Run one trade step as `userId`. The caller can only act for their own side. */
-export function applyTradeStep(trade: Trade, userId: string, req: TradeStepAction, at: string, trackingCode: string): Trade {
+export function applyTradeStep(
+  trade: Trade,
+  userId: string,
+  req: TradeStepAction,
+  at: string,
+  trackingCode: string,
+): Trade {
   const mine = requireSide(trade, userId);
   const theirs = logic.otherSide(mine);
   try {
@@ -219,8 +232,10 @@ export function buildProposal(input: {
     if (new Set(ids).size !== ids.length) throw new ActionError("The same figure was picked twice");
     for (const lid of ids) {
       const l = found.find((x) => x.id === lid);
-      if (!l || l.ownerId !== owner) throw new ActionError(`One of ${whose} figures wasn't found`, 404);
-      if (l.status !== "active") throw new ActionError(`"${l.title}" isn't available for trade right now`, 409);
+      if (!l || l.ownerId !== owner)
+        throw new ActionError(`One of ${whose} figures wasn't found`, 404);
+      if (l.status !== "active")
+        throw new ActionError(`"${l.title}" isn't available for trade right now`, 409);
     }
   };
   check(input.offeredIds, offered, proposerId, "your");
@@ -247,13 +262,18 @@ export function buildProposal(input: {
   };
 }
 
-export const tradeListingIds = (t: Trade) => [...t.proposerItems, ...t.receiverItems].map((i) => i.listingId);
+export const tradeListingIds = (t: Trade) =>
+  [...t.proposerItems, ...t.receiverItems].map((i) => i.listingId);
 
 /** Adds the "trade complete" line once both inspections are approved. Returns null if not newly complete. */
 export function markCompleteIfDone(trade: Trade, reports: Report[], at: string): Trade | null {
   if (logic.getTradePhase(trade, reports) !== "completed") return null;
   if (trade.timeline.some((e) => e.message.startsWith("Both sides approved"))) return null;
-  return { ...trade, updatedAt: at, timeline: [...trade.timeline, { at, message: "Both sides approved. Trade complete!" }] };
+  return {
+    ...trade,
+    updatedAt: at,
+    timeline: [...trade.timeline, { at, message: "Both sides approved. Trade complete!" }],
+  };
 }
 
 /** Check a review is allowed, and return the review row plus the updated trade. */
@@ -266,8 +286,10 @@ export function buildReview(
   at: string,
 ): { review: Omit<Review, "id">; trade: Trade } {
   const mine = requireSide(trade, userId);
-  if (logic.getTradePhase(trade, reports) !== "completed") throw new ActionError("You can review once the trade is complete", 409);
-  if (trade.reviewedBy.includes(userId)) throw new ActionError("You already reviewed this trade", 409);
+  if (logic.getTradePhase(trade, reports) !== "completed")
+    throw new ActionError("You can review once the trade is complete", 409);
+  if (trade.reviewedBy.includes(userId))
+    throw new ActionError("You already reviewed this trade", 409);
   const other = logic.collectorIdFor(trade, logic.otherSide(mine));
   return {
     review: {
@@ -283,14 +305,23 @@ export function buildReview(
 }
 
 /** Timeline line added to a trade when someone reports a problem on it. */
-export function noteReportOnTrade(trade: Trade, userId: string, category: ReportCategory, at: string): Trade {
+export function noteReportOnTrade(
+  trade: Trade,
+  userId: string,
+  category: ReportCategory,
+  at: string,
+): Trade {
   requireSide(trade, userId);
   return {
     ...trade,
     updatedAt: at,
     timeline: [
       ...trade.timeline,
-      { at, actorId: userId, message: `reported a problem: ${logic.REPORT_CATEGORY_LABELS[category]}` },
+      {
+        at,
+        actorId: userId,
+        message: `reported a problem: ${logic.REPORT_CATEGORY_LABELS[category]}`,
+      },
     ],
   };
 }
@@ -314,11 +345,20 @@ export function resolveTradeAfterReport(trade: Trade, at: string): Trade {
     if (sh.inspection?.result === "issue") {
       shipments[side] = {
         ...sh,
-        inspection: { ...sh.inspection, result: "approved", notes: `${sh.inspection.notes} (Resolved through a report.)` },
+        inspection: {
+          ...sh.inspection,
+          result: "approved",
+          notes: `${sh.inspection.notes} (Resolved through a report.)`,
+        },
       };
     }
   });
-  return { ...trade, shipments, updatedAt: at, timeline: [...trade.timeline, { at, message: "Problem report resolved" }] };
+  return {
+    ...trade,
+    shipments,
+    updatedAt: at,
+    timeline: [...trade.timeline, { at, message: "Problem report resolved" }],
+  };
 }
 
 export const newTradeId = () => `t-${Math.random().toString(36).slice(2, 8)}`;

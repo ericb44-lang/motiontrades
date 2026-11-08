@@ -66,7 +66,10 @@ describe("agreement + shipping", () => {
     t = generateLabel(t, "receiver", [...PACKING_CHECKLIST], AT, "X");
     t = markDroppedOff(t, "receiver", AT);
     expect(() => advanceCarrier(t, "receiver", AT)).toThrow();
-    t = shipBoth({ ...t, shipments: { ...t.shipments, receiver: { ...t.shipments.receiver, stage: "packing" } } });
+    t = shipBoth({
+      ...t,
+      shipments: { ...t.shipments, receiver: { ...t.shipments.receiver, stage: "packing" } },
+    });
     expect(getTradePhase(t)).toBe("in_transit");
     expect(advanceCarrier(t, "receiver", AT).shipments.receiver.stage).toBe("in_transit");
   });
@@ -88,7 +91,12 @@ describe("delivery + inspection", () => {
   it("cannot approve without checking off every agreed accessory", () => {
     const t = confirmDelivery(delivered(), "proposer", AT);
     expect(() =>
-      submitInspection(t, "proposer", { result: "approved", checkedAccessories: ["Ice axe"], notes: "", at: AT }),
+      submitInspection(t, "proposer", {
+        result: "approved",
+        checkedAccessories: ["Ice axe"],
+        notes: "",
+        at: AT,
+      }),
     ).toThrow();
   });
 
@@ -96,8 +104,15 @@ describe("delivery + inspection", () => {
     let t = delivered();
     for (const side of ["proposer", "receiver"] as const) {
       t = confirmDelivery(t, side, AT);
-      const acc = (side === "proposer" ? t.proposerItems : t.receiverItems).flatMap((i) => i.accessories);
-      t = submitInspection(t, side, { result: "approved", checkedAccessories: acc, notes: "", at: AT });
+      const acc = (side === "proposer" ? t.proposerItems : t.receiverItems).flatMap(
+        (i) => i.accessories,
+      );
+      t = submitInspection(t, side, {
+        result: "approved",
+        checkedAccessories: acc,
+        notes: "",
+        at: AT,
+      });
       if (side === "proposer") expect(getTradePhase(t)).toBe("inspection");
     }
     expect(getTradePhase(t)).toBe("completed");
@@ -119,7 +134,10 @@ describe("next action", () => {
   it("asks you to confirm delivery when their package has arrived", () => {
     const s = seed();
     const t = s.trades.find((x) => x.id === "t-1004")!;
-    expect(getNextAction(t, "u-me", s.reports)).toEqual({ actor: "you", label: "Confirm your package arrived" });
+    expect(getNextAction(t, "u-me", s.reports)).toEqual({
+      actor: "you",
+      label: "Confirm your package arrived",
+    });
   });
 });
 
@@ -135,7 +153,14 @@ describe("reputation", () => {
     favoriteLines: [],
     stats: { completedTrades: 40, disputes: 0, onTimeShipRate: 1 },
   };
-  const five = { id: "r", collectorId: "c", authorId: "x", rating: 5 as const, comment: "", createdAt: AT };
+  const five = {
+    id: "r",
+    collectorId: "c",
+    authorId: "x",
+    rating: 5 as const,
+    comment: "",
+    createdAt: AT,
+  };
 
   it("perfect record scores 100 and is Elite", () => {
     const rep = computeReputation(base, [five]);
@@ -144,13 +169,18 @@ describe("reputation", () => {
   });
 
   it("a collector with no trades is New", () => {
-    const rep = computeReputation({ ...base, stats: { completedTrades: 0, disputes: 0, onTimeShipRate: 0 } }, []);
+    const rep = computeReputation(
+      { ...base, stats: { completedTrades: 0, disputes: 0, onTimeShipRate: 0 } },
+      [],
+    );
     expect(rep.tier).toBe("New");
   });
 
   it("disputes lower the score", () => {
     const clean = computeReputation(base, [five]).score;
-    const disputed = computeReputation({ ...base, stats: { ...base.stats, disputes: 4 } }, [five]).score;
+    const disputed = computeReputation({ ...base, stats: { ...base.stats, disputes: 4 } }, [
+      five,
+    ]).score;
     expect(disputed).toBeLessThan(clean);
   });
 });
