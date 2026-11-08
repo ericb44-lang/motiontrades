@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, ExternalLink, Play, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GALLERY, ShotImage } from "@/components/site/FigureShots";
 
 const SOCIALS = [
   {
@@ -67,6 +68,26 @@ function About() {
             scammed there was no way of getting them back. That is why I started this website: to
             help creators like me trade comfortably.
           </p>
+        </div>
+
+        <div className="mt-14">
+          <h2 className="text-xl font-bold">From my shelf</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            A few of my own figures. I shoot them around the house and around Utah.
+          </p>
+          <div className="mt-5 columns-2 gap-3 sm:columns-3 [&>*]:mb-3">
+            {GALLERY.map((shot) => (
+              <figure
+                key={shot.src}
+                className="clip-chamfer-sm break-inside-avoid overflow-hidden border bg-card"
+              >
+                <ShotImage
+                  shot={shot}
+                  className="h-auto transition-transform duration-500 hover:scale-[1.03]"
+                />
+              </figure>
+            ))}
+          </div>
         </div>
 
         <div className="mt-14">

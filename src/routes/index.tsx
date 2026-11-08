@@ -23,6 +23,7 @@ import { getTradePhase } from "@/lib/marketplace/trade-logic";
 import { CATEGORIES } from "@/lib/marketplace/types";
 import { formatDate } from "@/lib/format";
 import { Advertisement, SponsoredBrands } from "@/components/site/Advertising";
+import { SHOTS, ShotImage } from "@/components/site/FigureShots";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -141,20 +142,48 @@ function Index() {
             </div>
           </div>
 
-          <div className="clip-chamfer animate-rise border bg-card p-6 shadow-card [animation-delay:120ms] sm:p-8">
-            <p className="font-bold">Every trade on here gets:</p>
-            <ul className="mt-5 space-y-4">
-              {promises.map((p) => (
-                <li key={p} className="flex items-start gap-3 text-sm">
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />
-                  <span>{p}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-6 border-t pt-4 text-xs text-muted-foreground">
-              Labels are bought right on the site, so neither of you ships until you're both ready.
+          <div className="animate-rise [animation-delay:120ms]">
+            <div className="grid h-[26rem] grid-cols-2 gap-3 sm:h-[32rem]">
+              <div className="clip-chamfer row-span-2 overflow-hidden border bg-card shadow-card">
+                <ShotImage shot={SHOTS.railing} eager className="object-[50%_35%]" />
+              </div>
+              <div className="clip-chamfer-sm overflow-hidden border bg-card shadow-card">
+                <ShotImage shot={SHOTS.ocean} eager className="object-[30%_40%]" />
+              </div>
+              <div className="clip-chamfer-sm overflow-hidden border bg-card shadow-card">
+                <ShotImage shot={SHOTS.lightning} eager className="object-[40%_30%]" />
+              </div>
+            </div>
+            <p className="mt-3 text-right text-xs text-muted-foreground">
+              Shots from my own shelf.{" "}
+              <a
+                href="https://www.tiktok.com/@mass_motion"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline"
+              >
+                More on TikTok
+              </a>
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* What every trade gets */}
+      <section className="border-b bg-card">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+          <p className="font-bold">Every trade on here gets:</p>
+          <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {promises.map((p) => (
+              <li key={p} className="flex items-start gap-3 text-sm">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />
+                <span>{p}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-6 text-xs text-muted-foreground">
+            Labels are bought right on the site, so neither of you ships until you're both ready.
+          </p>
         </div>
       </section>
 

@@ -1,12 +1,17 @@
-// Swap absolute /public paths (logo, favicon) for embedded data URLs so the file stands alone.
-import { readFileSync, writeFileSync } from "node:fs";
+// Swap absolute /public paths (logo, photos, favicon) for embedded data URLs so the file stands alone.
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 const out = "preview/dist/index.html";
 let html = readFileSync(out, "utf8");
-const logo = readFileSync("public/brand/motiontrades-logo.png").toString("base64");
-const aboutMe = readFileSync("public/brand/about-me.jpg").toString("base64");
-const icon = readFileSync("public/favicon.png").toString("base64");
-html = html.replaceAll("/brand/motiontrades-logo.png", `data:image/png;base64,${logo}`);
-html = html.replaceAll("/brand/about-me.jpg", `data:image/jpeg;base64,${aboutMe}`);
-html = html.replace("</head>", `<link rel="icon" type="image/png" href="data:image/png;base64,${icon}"></head>`);
+const dataUrl = (path) => {
+  const type = path.endsWith(".png") ? "image/png" : "image/jpeg";
+  return `data:${type};base64,${readFileSync(`public${path}`).toString("base64")}`;
+};
+const assets = [
+  "/brand/motiontrades-logo.png",
+  "/brand/about-me.jpg",
+  ...readdirSync("public/brand/shots").map((f) => `/brand/shots/${f}`),
+];
+for (const a of assets) html = html.replaceAll(a, dataUrl(a));
+html = html.replace("</head>", `<link rel="icon" type="image/png" href="${dataUrl("/favicon.png")}"></head>`);
 writeFileSync(out, html);
-console.log("Inlined logo and favicon →", out);
+console.log(`Inlined ${assets.length} images and the favicon →`, out);
