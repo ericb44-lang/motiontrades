@@ -110,6 +110,8 @@ export interface Shipment {
   /** Carrier for the tracking number, e.g. "USPS". */
   carrier?: string | undefined;
   packingChecklist: string[];
+  /** Photo of the open box right before sealing (path in the private packing-photos bucket). */
+  packingPhoto?: string | undefined;
   deliveryConfirmedAt?: string | undefined;
   inspection?: Inspection | undefined;
 }

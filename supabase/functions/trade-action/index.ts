@@ -36,7 +36,13 @@ import {
   type RateOption,
   type ShippingAddress,
 } from "../_shared/shipping.ts";
-import { createCheckout, getRates, validateAddress } from "../_shared/providers.ts";
+import {
+  createCheckout,
+  expireCheckout,
+  getCheckout,
+  getRates,
+  validateAddress,
+} from "../_shared/providers.ts";
 import { handleStripeWebhook } from "./stripe-webhook.ts";
 import { rowToListing, rowToReport, type ListingRow, type ReportRow } from "../_shared/rows.ts";
 import type { Report, Trade } from "../_shared/types.ts";
@@ -108,12 +114,13 @@ interface ShippingRow {
   address: ShippingAddress | null;
   rates: RateOption[];
   payment_status: "none" | "pending" | "paid" | "refunded" | "failed";
+  stripe_session_id: string | null;
 }
 
 async function shippingRows(db: SupabaseClient, tradeId: string): Promise<ShippingRow[]> {
   const { data, error } = await db
     .from("trade_shipping")
-    .select("trade_id, user_id, address, rates, payment_status")
+    .select("trade_id, user_id, address, rates, payment_status, stripe_session_id")
     .eq("trade_id", tradeId);
   if (error) throw error;
   return data as ShippingRow[];
@@ -380,6 +387,33 @@ async function handle(req: Request): Promise<Response> {
       if (!mine) throw new ActionError("Add your shipping address first", 409);
       if (mine.payment_status === "paid")
         throw new ActionError("You've already paid for this label.", 409);
+
+      // The packing photo must be one this collector uploaded for this trade.
+      const photoFolder = `${trade.id}/${me}`;
+      const photoName = body.packingPhoto.slice(photoFolder.length + 1);
+      if (!body.packingPhoto.startsWith(`${photoFolder}/`) || !photoName || photoName.includes("/"))
+        throw new ActionError("Add a photo of your packed box first");
+      const { data: found, error: photoErr } = await db.storage
+        .from("packing-photos")
+        .list(photoFolder, { search: photoName, limit: 1 });
+      if (photoErr) throw photoErr;
+      if (!found?.some((f) => f.name === photoName))
+        throw new ActionError("Your packing photo didn't finish uploading. Add it again.", 409);
+
+      // Never let someone pay twice: check the last checkout before starting a new one.
+      if (mine.payment_status === "pending" && mine.stripe_session_id) {
+        const last = await getCheckout(mine.stripe_session_id);
+        if (last.status === "open") {
+          await expireCheckout(mine.stripe_session_id);
+        }
+        const now = last.status === "open" ? await getCheckout(mine.stripe_session_id) : last;
+        if (now.status === "complete") {
+          throw new ActionError(
+            "Your payment already went through. Your label is being created, and this page will update in a moment.",
+            409,
+          );
+        }
+      }
       const rate = mine.rates.find((r) => r.rateId === body.rateId);
       if (!rate)
         throw new ActionError("Those prices expired. Get new shipping prices and try again.", 409);
@@ -403,6 +437,7 @@ async function handle(req: Request): Promise<Response> {
         label_cents: price.labelCents,
         selected_rate_id: rate.rateId,
         checklist: body.checklist,
+        packing_photo: body.packingPhoto,
         failure_message: null,
       });
       return json({ ok: true, url: session.url });

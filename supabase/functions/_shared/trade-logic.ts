@@ -21,11 +21,9 @@ export const SHIP_WINDOW_DAYS = 5;
 export const INSPECTION_WINDOW_HOURS = 48;
 
 export const PACKING_CHECKLIST = [
-  "Figure wrapped in protective sleeve or bubble wrap",
-  "Every accessory listed in the agreement is bagged and included",
-  "Photos taken of the figure and accessories before sealing",
-  "Condition matches what is written in the agreement",
-  "Box is rigid and items cannot shift inside",
+  "The figure and every accessory in the agreement are in the box",
+  "Everything is wrapped and can't shift around",
+  "The condition matches what the agreement says",
 ] as const;
 
 export const SHIP_STAGE_LABELS: Record<ShipStage, string> = {
@@ -153,7 +151,7 @@ export function getNextAction(trade: Trade, userId: string, reports: Report[] = 
   const mine = trade.shipments[me];
   const incoming = trade.shipments[them];
 
-  if (mine.stage === "packing") return { actor: "you", label: "Complete the packing checklist" };
+  if (mine.stage === "packing") return { actor: "you", label: "Pack your box and buy your label" };
   if (mine.stage === "label_created") return { actor: "you", label: "Drop off your package" };
   if (hasReached(incoming, "delivered") && !incoming.deliveryConfirmedAt) {
     return { actor: "you", label: "Confirm your package arrived" };
@@ -251,6 +249,8 @@ export function generateLabel(
   checklist: string[],
   at: string,
   code: string,
+  /** Storage path of the photo taken right before sealing the box. */
+  packingPhoto?: string,
 ): Trade {
   const s = trade.shipments[side];
   if (s.stage !== "packing") throw new Error("Package is not in the packing stage");
@@ -265,11 +265,12 @@ export function generateLabel(
           ...pushStage(s, "label_created", at),
           packingChecklist: [...checklist],
           trackingCode: code,
+          ...(packingPhoto ? { packingPhoto } : {}),
         },
       },
     },
     at,
-    "finished the packing checklist",
+    "packed their box",
     collectorIdFor(trade, side),
   );
 }

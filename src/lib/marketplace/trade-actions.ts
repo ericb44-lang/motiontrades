@@ -52,7 +52,15 @@ export type ActionRequest =
   | { action: "advanceReport"; reportId: string }
   | { action: "saveAddress"; tradeId: string; address: ShippingAddress }
   | { action: "getRates"; tradeId: string; parcel: Parcel }
-  | { action: "checkout"; tradeId: string; rateId: string; checklist: string[]; returnUrl: string };
+  | {
+      action: "checkout";
+      tradeId: string;
+      rateId: string;
+      checklist: string[];
+      /** Storage path of the packing photo: "<trade id>/<user id>/<file>.jpg". */
+      packingPhoto: string;
+      returnUrl: string;
+    };
 
 const TRADE_STEP_ACTIONS = new Set([
   "accept",
@@ -114,11 +122,14 @@ export function parseRequest(body: unknown): ActionRequest {
       if (!tradeId) throw new ActionError("Missing trade");
       const rateId = str(b["rateId"], 64);
       if (!rateId) throw new ActionError("Pick a shipping option");
+      const packingPhoto = str(b["packingPhoto"], 200);
+      if (!packingPhoto) throw new ActionError("Add a photo of your packed box first");
       return {
         action,
         tradeId,
         rateId,
         checklist: strList(b["checklist"], 20, 200),
+        packingPhoto,
         returnUrl: str(b["returnUrl"], 500),
       };
     }

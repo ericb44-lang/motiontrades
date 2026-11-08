@@ -12,7 +12,7 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { verifyStripeSignature } from "../_shared/stripe-signature.ts";
 import { buyLabel, refund } from "../_shared/providers.ts";
-import { generateLabel, sideOf } from "../_shared/trade-logic.ts";
+import { PACKING_CHECKLIST, generateLabel, sideOf } from "../_shared/trade-logic.ts";
 import type { RateOption } from "../_shared/shipping.ts";
 import type { Trade } from "../_shared/types.ts";
 
@@ -36,7 +36,7 @@ async function moveTradeToLabelCreated(
   db: SupabaseClient,
   tradeId: string,
   userId: string,
-  checklist: string[],
+  packingPhoto: string | null,
   trackingNumber: string,
   carrier: string,
 ) {
@@ -53,7 +53,15 @@ async function moveTradeToLabelCreated(
     if (!side) throw new Error("Payer is not part of this trade");
     if (trade.shipments[side].stage !== "packing") return; // already moved on
     const at = new Date().toISOString();
-    const next = generateLabel(trade, side, checklist, at, trackingNumber);
+    // The checklist and photo were checked when they started checkout; payment is the go-ahead.
+    const next = generateLabel(
+      trade,
+      side,
+      [...PACKING_CHECKLIST],
+      at,
+      trackingNumber,
+      packingPhoto ?? undefined,
+    );
     next.shipments[side] = { ...next.shipments[side], carrier };
     next.timeline = next.timeline.map((e, i) =>
       i === next.timeline.length - 1 ? { ...e, message: `paid for their ${carrier} label` } : e,
@@ -80,7 +88,7 @@ async function handleCompleted(db: SupabaseClient, session: CheckoutSession) {
     .update({ payment_status: "paid", updated_at: new Date().toISOString() })
     .eq("stripe_session_id", session.id)
     .eq("payment_status", "pending")
-    .select("trade_id, user_id, selected_rate_id, rates, checklist");
+    .select("trade_id, user_id, selected_rate_id, rates, packing_photo");
   if (error) throw error;
 
   const row = claimed?.[0] as
@@ -89,7 +97,7 @@ async function handleCompleted(db: SupabaseClient, session: CheckoutSession) {
         user_id: string;
         selected_rate_id: string;
         rates: RateOption[];
-        checklist: string[];
+        packing_photo: string | null;
       }
     | undefined;
 
@@ -97,7 +105,7 @@ async function handleCompleted(db: SupabaseClient, session: CheckoutSession) {
     // Already handled (Stripe retry), or a stale checkout that was replaced by a newer one.
     const { data: existing } = await db
       .from("trade_shipping")
-      .select("trade_id, user_id, payment_status, tracking_number, carrier, checklist")
+      .select("trade_id, user_id, payment_status, tracking_number, carrier, packing_photo")
       .eq("stripe_session_id", session.id)
       .maybeSingle();
     if (!existing) {
@@ -111,7 +119,7 @@ async function handleCompleted(db: SupabaseClient, session: CheckoutSession) {
         db,
         existing.trade_id as string,
         existing.user_id as string,
-        existing.checklist as string[],
+        (existing.packing_photo as string | null) ?? null,
         existing.tracking_number as string,
         (existing.carrier as string | null) ?? "USPS",
       );
@@ -157,7 +165,7 @@ async function handleCompleted(db: SupabaseClient, session: CheckoutSession) {
     db,
     row.trade_id,
     row.user_id,
-    row.checklist,
+    row.packing_photo,
     label.trackingNumber,
     carrier,
   );
@@ -178,8 +186,18 @@ async function handleExpired(db: SupabaseClient, session: CheckoutSession) {
 
 export async function handleStripeWebhook(req: Request): Promise<Response> {
   const body = await req.text();
-  const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
-  if (!(await verifyStripeSignature(body, req.headers.get("Stripe-Signature"), secret))) {
+  const secret = (Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "").trim();
+  const header = req.headers.get("Stripe-Signature");
+  if (!(await verifyStripeSignature(body, header, secret))) {
+    // Never log the secret itself, only enough to tell what's wrong with it.
+    console.error("Stripe signature check failed", {
+      secretSaved: secret.length > 0,
+      secretLooksRight: secret.startsWith("whsec_"),
+      secretLength: secret.length,
+      headerHasTimestamp: /(^|,)t=\d+/.test(header ?? ""),
+      headerHasSignature: /(^|,)v1=/.test(header ?? ""),
+      stripeSecretNames: Object.keys(Deno.env.toObject()).filter((k) => /STRIPE|WEBHOOK/i.test(k)),
+    });
     return new Response("Bad signature", { status: 400 });
   }
 

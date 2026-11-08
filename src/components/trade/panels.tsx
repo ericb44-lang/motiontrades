@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  Camera,
   Check,
   CheckCircle2,
   FileSignature,
@@ -9,7 +10,7 @@ import {
   Star,
   Truck,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,6 @@ import { REPORT_CATEGORY_LABELS, market, useIsAdmin, useMyShipping } from "@/lib
 import { trackingUrl } from "@/lib/marketplace/shipping";
 import { LabelPurchase } from "./LabelPurchase";
 import {
-  PACKING_CHECKLIST,
   SHIP_STAGE_LABELS,
   canAdvanceCarrier,
   hasReached,
@@ -432,8 +432,48 @@ export function ShipmentPanel({
             {s.deliveryConfirmedAt ? "finish inspecting" : "confirm delivery"}.
           </p>
         )}
+
+        {s.packingPhoto && (
+          <PackedPhoto path={s.packingPhoto} who={isMine ? "you" : sender.displayName} />
+        )}
       </div>
     </Panel>
+  );
+}
+
+/** The photo the sender took of the open box before sealing it. Private to the two collectors. */
+function PackedPhoto({ path, who }: { path: string; who: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    void market.packingPhotoUrl(path).then((u) => live && setUrl(u));
+    return () => {
+      live = false;
+    };
+  }, [path]);
+  return (
+    <div className="mt-5 flex items-center gap-3 border-t pt-4 text-sm">
+      {url ? (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+          <img
+            src={url}
+            alt={`Box packed by ${who}`}
+            width={64}
+            height={64}
+            className="size-16 border object-cover"
+          />
+        </a>
+      ) : (
+        <span className="grid size-16 shrink-0 place-items-center border text-muted-foreground">
+          <Camera className="size-5" />
+        </span>
+      )}
+      <p className="text-muted-foreground">
+        <span className="font-semibold text-foreground">Packing photo</span>
+        <br />
+        Taken by {who} right before sealing the box. Tap to see it full size.
+      </p>
+    </div>
   );
 }
 

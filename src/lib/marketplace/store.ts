@@ -87,7 +87,7 @@ async function refresh() {
       ? db
           .from("trade_shipping")
           .select(
-            "trade_id, address, parcel, rates, selected_rate_id, payment_status, amount_total_cents, label_url, tracking_number, carrier, failure_message",
+            "trade_id, address, parcel, rates, selected_rate_id, payment_status, amount_total_cents, label_url, tracking_number, carrier, failure_message, packing_photo",
           )
           .eq("user_id", me)
       : Promise.resolve({ data: [], error: null }),
@@ -125,6 +125,7 @@ async function refresh() {
           trackingNumber: r.tracking_number,
           carrier: r.carrier,
           failureMessage: r.failure_message,
+          packingPhoto: r.packing_photo,
         } satisfies MyShipping,
       ]),
     ),
@@ -143,6 +144,7 @@ interface ShippingRow {
   tracking_number: string | null;
   carrier: string | null;
   failure_message: string | null;
+  packing_photo: string | null;
 }
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -475,13 +477,32 @@ export const market = {
     return res.rates;
   },
 
+  /** Upload the photo of the open box taken right before sealing. Returns its private storage path. */
+  async uploadPackingPhoto(tradeId: string, file: File): Promise<string> {
+    const me = requireMe();
+    const blob = await compressPhoto(file);
+    const path = `${tradeId}/${me}/${crypto.randomUUID()}.jpg`;
+    const { error } = await supabase()
+      .storage.from("packing-photos")
+      .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+    if (error) throw new Error(`Couldn't upload your photo. ${error.message}`);
+    return path;
+  },
+
+  /** A short-lived link to a packing photo (only the two collectors and admins can get one). */
+  async packingPhotoUrl(path: string): Promise<string | null> {
+    const { data } = await supabase().storage.from("packing-photos").createSignedUrl(path, 3600);
+    return data?.signedUrl ?? null;
+  },
+
   /** Start paying for a label. Sends the browser to Stripe's checkout page. */
-  async payForLabel(tradeId: string, rateId: string, checklist: string[]) {
+  async payForLabel(tradeId: string, rateId: string, checklist: string[], packingPhoto: string) {
     const res = await act<{ url: string }>({
       action: "checkout",
       tradeId,
       rateId,
       checklist,
+      packingPhoto,
       returnUrl: window.location.href,
     });
     window.location.assign(res.url);

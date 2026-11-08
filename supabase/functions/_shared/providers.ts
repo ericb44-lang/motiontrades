@@ -171,24 +171,36 @@ function form(
 
 async function stripe<T>(
   path: string,
-  params: Record<string, unknown>,
+  params: Record<string, unknown> | null,
   idempotencyKey?: string,
 ): Promise<T> {
   const res = await fetch(`https://api.stripe.com/v1${path}`, {
-    method: "POST",
+    method: params ? "POST" : "GET",
     headers: {
       Authorization: `Bearer ${stripeKey()}`,
-      "Content-Type": "application/x-www-form-urlencoded",
+      ...(params ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
       ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
-    body: form(params),
+    ...(params ? { body: form(params) } : {}),
   });
-  const data = (await res.json()) as T & { error?: { message?: string } };
+  const data = (await res.json()) as T & { error?: { message?: string; code?: string } };
   if (!res.ok) {
-    console.error("Stripe error", res.status, data.error?.message);
-    throw new ActionError("The payment service didn't respond. Try again in a minute.", 409);
+    console.error("Stripe error", res.status, data.error?.code, data.error?.message);
+    throw new StripeError(
+      "The payment service didn't respond. Try again in a minute.",
+      data.error?.code,
+    );
   }
   return data;
+}
+
+class StripeError extends ActionError {
+  constructor(
+    message: string,
+    readonly code?: string,
+  ) {
+    super(message, 409);
+  }
 }
 
 export interface CheckoutLine {
@@ -225,9 +237,36 @@ export async function createCheckout(input: {
 }
 
 export async function refund(paymentIntentId: string, reason: string): Promise<void> {
-  await stripe(
-    "/refunds",
-    { payment_intent: paymentIntentId, metadata: { reason: reason.slice(0, 450) } },
-    `refund-${paymentIntentId}`,
-  );
+  try {
+    await stripe(
+      "/refunds",
+      { payment_intent: paymentIntentId, metadata: { reason: reason.slice(0, 450) } },
+      `refund-${paymentIntentId}`,
+    );
+  } catch (e) {
+    // Already refunded (e.g. by hand in the dashboard) counts as done.
+    if (e instanceof StripeError && e.code === "charge_already_refunded") return;
+    throw e;
+  }
+}
+
+export interface CheckoutStatus {
+  id: string;
+  status: "open" | "complete" | "expired";
+  payment_status: string;
+}
+
+export async function getCheckout(sessionId: string): Promise<CheckoutStatus> {
+  return await stripe<CheckoutStatus>(`/checkout/sessions/${encodeURIComponent(sessionId)}`, null);
+}
+
+/** Close an unpaid checkout so it can't be paid later (prevents paying twice). */
+export async function expireCheckout(sessionId: string): Promise<void> {
+  try {
+    await stripe(`/checkout/sessions/${encodeURIComponent(sessionId)}/expire`, {});
+  } catch (e) {
+    // Already expired or completed: the caller re-checks the status.
+    if (e instanceof StripeError) return;
+    throw e;
+  }
 }

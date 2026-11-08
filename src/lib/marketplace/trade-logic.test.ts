@@ -58,7 +58,20 @@ describe("agreement + shipping", () => {
 
   it("a label requires every packing checklist item", () => {
     const t = signedTrade();
-    expect(() => generateLabel(t, "receiver", PACKING_CHECKLIST.slice(0, 4), AT, "X")).toThrow();
+    expect(() => generateLabel(t, "receiver", PACKING_CHECKLIST.slice(0, -1), AT, "X")).toThrow();
+  });
+
+  it("keeps the packing photo with the package", () => {
+    const t = generateLabel(
+      signedTrade(),
+      "receiver",
+      [...PACKING_CHECKLIST],
+      AT,
+      "X",
+      "t/u/p.jpg",
+    );
+    expect(t.shipments.receiver.packingPhoto).toBe("t/u/p.jpg");
+    expect(t.shipments.receiver.stage).toBe("label_created");
   });
 
   it("carrier tracking stays locked until BOTH packages are dropped off", () => {

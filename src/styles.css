@@ -120,7 +120,11 @@
   /* Flat brand color. These names are kept so existing classes still work. */
   --gradient-crimson: linear-gradient(var(--primary), var(--primary));
   --gradient-hero: linear-gradient(var(--surface), var(--surface));
-  --gradient-fade-bottom: linear-gradient(180deg, transparent 55%, color-mix(in oklab, var(--foreground) 35%, transparent));
+  --gradient-fade-bottom: linear-gradient(
+    180deg,
+    transparent 55%,
+    color-mix(in oklab, var(--foreground) 35%, transparent)
+  );
   --shadow-crimson: none;
   --shadow-card: 0 1px 2px 0 oklch(0 0 0 / 6%);
 }
@@ -179,7 +183,14 @@
 
 /* Geometric chamfered corners used for premium panels */
 @utility clip-chamfer {
-  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  clip-path: polygon(
+    0 0,
+    calc(100% - 14px) 0,
+    100% 14px,
+    100% 100%,
+    14px 100%,
+    0 calc(100% - 14px)
+  );
 }
 
 @utility clip-chamfer-sm {

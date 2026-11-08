@@ -1,6 +1,7 @@
-// The sender's shipping steps: private address, package, prices, packing checklist, pay.
+// The sender's shipping steps: private address, package, prices, pack + photo, pay.
 // After Stripe confirms payment, the server buys the label and the trade moves to "label created".
 import {
+  Camera,
   CheckCircle2,
   CreditCard,
   Loader2,
@@ -10,7 +11,7 @@ import {
   Pencil,
   RefreshCw,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -146,6 +147,99 @@ function AddressForm({
   );
 }
 
+function PackingPhoto({
+  tradeId,
+  path,
+  onChange,
+  disabled,
+}: {
+  tradeId: string;
+  path: string | null;
+  onChange: (path: string) => void;
+  disabled?: boolean;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  // Coming back from the payment page: show the photo that's already saved.
+  useEffect(() => {
+    if (!path || preview) return;
+    let live = true;
+    void market.packingPhotoUrl(path).then((url) => live && url && setPreview(url));
+    return () => {
+      live = false;
+    };
+  }, [path]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const saved = await market.uploadPackingPhoto(tradeId, file);
+      setPreview(URL.createObjectURL(file));
+      onChange(saved);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setUploading(false);
+      if (input.current) input.current.value = "";
+    }
+  };
+
+  return (
+    <div className="border bg-card p-3">
+      <p className="text-sm font-semibold">Photo of your open box</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Take it right before you tape it shut, with the figure and accessories visible. Both of you
+        can see it if there's ever a question about what was sent.
+      </p>
+      <div className="mt-3 flex items-center gap-3">
+        {preview ? (
+          <img
+            src={preview}
+            alt="Your packed box"
+            className="size-20 border object-cover"
+            width={80}
+            height={80}
+          />
+        ) : (
+          <span className="grid size-20 place-items-center border border-dashed text-muted-foreground">
+            <Camera className="size-6" />
+          </span>
+        )}
+        <div>
+          <input
+            ref={input}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            id={`packing-photo-${tradeId}`}
+            onChange={(e) => void pick(e.target.files?.[0])}
+            disabled={disabled || uploading}
+          />
+          <Button
+            type="button"
+            variant={path ? "outline" : "hero"}
+            size="sm"
+            onClick={() => input.current?.click()}
+            disabled={disabled || uploading}
+          >
+            {uploading ? <Loader2 className="animate-spin" /> : <Camera />}
+            {path ? "Retake photo" : "Add photo"}
+          </Button>
+          {path && !uploading && (
+            <p className="mt-1.5 flex items-center gap-1 text-xs text-success">
+              <CheckCircle2 className="size-3" /> Photo saved
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LabelPurchase({ trade, otherName }: { trade: Trade; otherName: string }) {
   const mine = useMyShipping(trade.id);
   const [editingAddress, setEditingAddress] = useState(false);
@@ -154,6 +248,7 @@ export function LabelPurchase({ trade, otherName }: { trade: Trade; otherName: s
   const [rates, setRates] = useState<RateOption[]>(mine?.rates ?? []);
   const [rateId, setRateId] = useState<string | null>(mine?.selectedRateId ?? null);
   const [checks, setChecks] = useState<string[]>([]);
+  const [photo, setPhoto] = useState<string | null>(mine?.packingPhoto ?? null);
   const [busy, setBusy] = useState<"rates" | "pay" | null>(null);
 
   // Keep the price list in step with the server (it clears them when an address changes).
@@ -167,7 +262,8 @@ export function LabelPurchase({ trade, otherName }: { trade: Trade; otherName: s
   const paid = mine?.paymentStatus === "paid";
   const selected = rates.find((r) => r.rateId === rateId);
   const price = selected ? priceBreakdown(selected.labelCents) : null;
-  const checklistDone = checks.length === PACKING_CHECKLIST.length;
+  const checklistDone = PACKING_CHECKLIST.every((c) => checks.includes(c));
+  const packed = checklistDone && !!photo;
 
   const fetchRates = async () => {
     setBusy("rates");
@@ -183,10 +279,10 @@ export function LabelPurchase({ trade, otherName }: { trade: Trade; otherName: s
   };
 
   const pay = async () => {
-    if (!rateId) return;
+    if (!rateId || !photo) return;
     setBusy("pay");
     try {
-      await market.payForLabel(trade.id, rateId, checks);
+      await market.payForLabel(trade.id, rateId, checks, photo);
     } catch (e) {
       toast.error((e as Error).message);
       setBusy(null);
@@ -204,6 +300,17 @@ export function LabelPurchase({ trade, otherName }: { trade: Trade; otherName: s
 
   return (
     <div className="space-y-3">
+      {pending && (
+        <div className="flex items-start gap-3 border border-primary/40 bg-primary/5 p-4 text-sm">
+          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-primary" />
+          <p>
+            <span className="font-semibold">Checking on your payment.</span> If you finished paying,
+            we'll buy your label as soon as Stripe confirms it, and this page updates by itself. If
+            you left the payment page without paying, you can pay below.
+          </p>
+        </div>
+      )}
+
       {mine?.failureMessage && (
         <p className="border border-warning/40 bg-warning/5 p-3 text-sm">{mine.failureMessage}</p>
       )}
@@ -327,7 +434,7 @@ export function LabelPurchase({ trade, otherName }: { trade: Trade; otherName: s
         )}
       </Step>
 
-      <Step n={3} title="Packing checklist" done={checklistDone}>
+      <Step n={3} title="Pack it up" done={packed}>
         <ul className="space-y-2">
           {PACKING_CHECKLIST.map((c) => (
             <li key={c}>
@@ -344,6 +451,9 @@ export function LabelPurchase({ trade, otherName }: { trade: Trade; otherName: s
             </li>
           ))}
         </ul>
+        <div className="mt-3">
+          <PackingPhoto tradeId={trade.id} path={photo} onChange={setPhoto} />
+        </div>
       </Step>
 
       <Step n={4} title="Pay and get your label">
@@ -371,24 +481,26 @@ export function LabelPurchase({ trade, otherName }: { trade: Trade; otherName: s
         ) : (
           <p className="text-sm text-muted-foreground">Pick a shipping option to see your total.</p>
         )}
-        {pending && (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Waiting for your payment to go through. If you closed the payment page, you can pay
-            again below.
-          </p>
-        )}
         <Button
           variant="hero"
           className="mt-4 w-full sm:w-auto"
           onClick={() => void pay()}
-          disabled={!price || !checklistDone || busy !== null}
+          disabled={!price || !packed || busy !== null}
         >
           {busy === "pay" ? <Loader2 className="animate-spin" /> : <CreditCard />}
           {price ? `Pay ${formatCents(price.totalCents)}` : "Pay"}
         </Button>
-        {!checklistDone && price && (
+        {!packed && price && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Check off the packing list to continue.
+            {checklistDone
+              ? "Add the photo of your open box to continue."
+              : "Check off the packing list and add your photo to continue."}
+          </p>
+        )}
+        {pending && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Only pay again if you closed the payment page without paying. If your first payment went
+            through, we'll tell you instead of charging you twice.
           </p>
         )}
         <p className="mt-3 text-xs text-muted-foreground">

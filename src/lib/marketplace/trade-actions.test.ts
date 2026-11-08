@@ -188,6 +188,18 @@ describe("request parsing", () => {
       parseRequest({ action: "getRates", tradeId: "t-1", parcel: { box: "small", weightLb: -1 } }),
     ).toThrow(ActionError);
     expect(() => parseRequest({ action: "checkout", tradeId: "t-1" })).toThrow(/shipping option/);
+    expect(() => parseRequest({ action: "checkout", tradeId: "t-1", rateId: "r1" })).toThrow(
+      /photo/,
+    );
+    expect(
+      parseRequest({
+        action: "checkout",
+        tradeId: "t-1",
+        rateId: "r1",
+        packingPhoto: "t-1/u/p.jpg",
+        returnUrl: "https://motion-trades.com/#/trades/t-1",
+      }),
+    ).toMatchObject({ packingPhoto: "t-1/u/p.jpg" });
   });
 
   it("rejects ratings outside 1 to 5", () => {

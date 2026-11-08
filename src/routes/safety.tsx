@@ -114,7 +114,8 @@ function Safety() {
           <div>
             <h2 className="text-2xl font-bold">The packing checklist</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              You check these off before you can print a label.
+              You check these off and snap a photo of the open box before you can buy a label. Both
+              collectors can see each other's packing photo.
             </p>
             <ul className="mt-6 space-y-3">
               {PACKING_CHECKLIST.map((c) => (
@@ -122,6 +123,10 @@ function Safety() {
                   <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" /> {c}
                 </li>
               ))}
+              <li className="flex items-start gap-3 text-sm">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" /> A photo of the open
+                box, taken right before you seal it
+              </li>
             </ul>
           </div>
           <div>

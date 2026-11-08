@@ -241,4 +241,6 @@ export interface MyShipping {
   trackingNumber: string | null;
   carrier: string | null;
   failureMessage: string | null;
+  /** The packing photo picked for the current payment, if any. */
+  packingPhoto: string | null;
 }
